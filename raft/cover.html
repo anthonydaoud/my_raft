@@ -1,0 +1,3800 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/brown-csci1380/s18-adaoud-sagadre/raft/raft/client.go (82.6%)</option>
+				
+				<option value="file1">github.com/brown-csci1380/s18-adaoud-sagadre/raft/raft/cluster.go (32.3%)</option>
+				
+				<option value="file2">github.com/brown-csci1380/s18-adaoud-sagadre/raft/raft/config.go (70.0%)</option>
+				
+				<option value="file3">github.com/brown-csci1380/s18-adaoud-sagadre/raft/raft/disk_logging.go (37.3%)</option>
+				
+				<option value="file4">github.com/brown-csci1380/s18-adaoud-sagadre/raft/raft/logging.go (42.6%)</option>
+				
+				<option value="file5">github.com/brown-csci1380/s18-adaoud-sagadre/raft/raft/network_policy.go (75.0%)</option>
+				
+				<option value="file6">github.com/brown-csci1380/s18-adaoud-sagadre/raft/raft/node.go (75.4%)</option>
+				
+				<option value="file7">github.com/brown-csci1380/s18-adaoud-sagadre/raft/raft/node_candidate_state.go (71.9%)</option>
+				
+				<option value="file8">github.com/brown-csci1380/s18-adaoud-sagadre/raft/raft/node_follower_state.go (67.0%)</option>
+				
+				<option value="file9">github.com/brown-csci1380/s18-adaoud-sagadre/raft/raft/node_leader_state.go (74.9%)</option>
+				
+				<option value="file10">github.com/brown-csci1380/s18-adaoud-sagadre/raft/raft/node_stable_store.go (65.1%)</option>
+				
+				<option value="file11">github.com/brown-csci1380/s18-adaoud-sagadre/raft/raft/raft_rpc.pb.go (44.6%)</option>
+				
+				<option value="file12">github.com/brown-csci1380/s18-adaoud-sagadre/raft/raft/raft_rpc_client.go (67.5%)</option>
+				
+				<option value="file13">github.com/brown-csci1380/s18-adaoud-sagadre/raft/raft/raft_rpc_server.go (80.0%)</option>
+				
+				<option value="file14">github.com/brown-csci1380/s18-adaoud-sagadre/raft/raft/util.go (68.8%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package raft
+
+import (
+        "errors"
+        "fmt"
+        "time"
+)
+
+// Client represents a client that connects to a known node in the Raft cluster
+// to issue commands. It can be used by a CLI, web app, or other application to
+// interface with Raft.
+type Client struct {
+        Id          uint64           // Client ID, determined by the Raft node
+        Leader      *RemoteNode // Raft node we're connected to (also last known leader)
+        SequenceNum uint64           // Sequence number of the latest request sent by the client
+}
+
+// MAX_RETRIES is the maximum times the Client will retry a request after
+// receiving a REQ_FAILED reply from the Raft cluster
+const MAX_RETRIES = 3
+
+// Connect creates a new Client and registers with the Raft node at the given address.
+func Connect(addr string) (cp *Client, err error) <span class="cov8" title="1">{
+        cp = new(Client)
+
+        // Note: we don't yet know the ID of the remoteNode, so just set it to an
+        // empty string.
+        remoteNode := &amp;RemoteNode{Id: "", Addr: addr}
+
+        var reply *RegisterClientReply
+        retries := 0
+LOOP:
+        for retries &lt; MAX_RETRIES </span><span class="cov8" title="1">{
+                reply, err = remoteNode.RegisterClientRPC()
+                if err != nil </span><span class="cov0" title="0">{
+                        return
+                }</span>
+
+                <span class="cov8" title="1">switch reply.Status </span>{
+                <span class="cov8" title="1">case ClientStatus_OK:
+                        fmt.Printf("%v is the leader. Client successfully created.\n", remoteNode)
+                        break LOOP</span>
+                <span class="cov0" title="0">case ClientStatus_REQ_FAILED:
+                        fmt.Printf("Request failed, retrying...\n")
+                        retries++</span>
+                <span class="cov8" title="1">case ClientStatus_NOT_LEADER:
+                        // The person we've contacted isn't the leader. Use their hint to find
+                        // the leader.
+                        fmt.Printf("%v is not the leader, but thinks that %v is\n", remoteNode, reply.LeaderHint)
+                        remoteNode = reply.LeaderHint</span>
+                <span class="cov8" title="1">case ClientStatus_ELECTION_IN_PROGRESS:
+                        // An election is in progress. Accept the hint and wait an appropriate
+                        // amount of time, so the election can finish.
+                        fmt.Printf("%v is not the leader, but thinks that %v is\n", remoteNode, reply.LeaderHint)
+                        remoteNode = reply.LeaderHint
+                        time.Sleep(time.Millisecond * 200)</span>
+                <span class="cov8" title="1">case ClientStatus_CLUSTER_NOT_STARTED:
+                        return nil, errors.New("cluster hasn't started")</span>
+                <span class="cov0" title="0">default:</span>
+                }
+        }
+        <span class="cov8" title="1">if retries == MAX_RETRIES </span><span class="cov0" title="0">{
+                return nil, errors.New("Connect request failed")
+        }</span>
+
+        // We've registered with the leader!
+        <span class="cov8" title="1">cp.Id = reply.ClientId
+        cp.Leader = remoteNode
+
+        return</span>
+}
+
+// SendRequest sends a command the associated data to the last known leader of
+// the Raft cluster, and handles responses.
+func (c *Client) SendRequest(command uint64, data []byte) (err error) <span class="cov8" title="1">{
+        request := ClientRequest{
+                ClientId:        c.Id,
+                SequenceNum:     c.SequenceNum,
+                StateMachineCmd: command,
+                Data:            data,
+        }
+
+        c.SequenceNum++
+
+        var reply *ClientReply
+        retries := 0
+LOOP:
+        for retries &lt; MAX_RETRIES </span><span class="cov8" title="1">{
+                reply, err = c.Leader.ClientRequestRPC(&amp;request)
+                if err != nil </span><span class="cov0" title="0">{
+                        return
+                }</span>
+
+                <span class="cov8" title="1">switch reply.Status </span>{
+                <span class="cov8" title="1">case ClientStatus_OK:
+                        fmt.Printf("%v is the leader\n", c.Leader)
+                        fmt.Printf("Request returned \"%v\"\n", reply.Response)
+                        break LOOP</span>
+                <span class="cov8" title="1">case ClientStatus_REQ_FAILED:
+                        fmt.Printf("Request failed: %v\n", reply.Response)
+                        fmt.Println("Retrying...")
+                        retries++</span>
+                <span class="cov8" title="1">case ClientStatus_NOT_LEADER:
+                        // The person we've contacted isn't the leader. Use their hint to find
+                        // the leader.
+                        c.Leader = reply.LeaderHint</span>
+                <span class="cov0" title="0">case ClientStatus_ELECTION_IN_PROGRESS:
+                        // An election is in progress. Accept the hint and wait an appropriate
+                        // amount of time, so the election can finish.
+                        c.Leader = reply.LeaderHint
+                        time.Sleep(time.Millisecond * 200)</span>
+                <span class="cov0" title="0">case ClientStatus_CLUSTER_NOT_STARTED:
+                        return errors.New("cluster hasn't started")</span>
+                }
+        }
+        <span class="cov8" title="1">if retries == MAX_RETRIES </span><span class="cov8" title="1">{
+                return errors.New("Send request failed")
+        }</span>
+
+        <span class="cov8" title="1">return</span>
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package raft
+
+// CreateLocalCluster creates a new Raft cluster with the given config in the
+// current process.
+func CreateLocalCluster(config *Config) ([]*RaftNode, error) <span class="cov8" title="1">{
+        if config == nil </span><span class="cov0" title="0">{
+                config = DefaultConfig()
+        }</span>
+        <span class="cov8" title="1">err := CheckConfig(config)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">nodes := make([]*RaftNode, config.ClusterSize)
+
+        nodes[0], err = CreateNode(0, nil, config)
+        if err != nil </span><span class="cov0" title="0">{
+                Error.Printf("Error creating first node: %v", err)
+                return nodes, err
+        }</span>
+
+        <span class="cov8" title="1">for i := 1; i &lt; config.ClusterSize; i++ </span><span class="cov8" title="1">{
+                nodes[i], err = CreateNode(0, nodes[0].GetRemoteSelf(), config)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+        }
+
+        <span class="cov8" title="1">return nodes, nil</span>
+}
+
+// CreateDefinedLocalCluster creates a new Raft cluster with nodes listening at
+// the given ports in the current process.
+func CreateDefinedLocalCluster(config *Config, ports []int) ([]*RaftNode, error) <span class="cov0" title="0">{
+        if config == nil </span><span class="cov0" title="0">{
+                config = DefaultConfig()
+        }</span>
+        <span class="cov0" title="0">err := CheckConfig(config)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">nodes := make([]*RaftNode, config.ClusterSize)
+
+        nodes[0], err = CreateNode(ports[0], nil, config)
+        if err != nil </span><span class="cov0" title="0">{
+                Error.Printf("Error creating first node: %v", err)
+                return nodes, err
+        }</span>
+
+        <span class="cov0" title="0">for i := 1; i &lt; config.ClusterSize; i++ </span><span class="cov0" title="0">{
+                nodes[i], err = CreateNode(ports[i], nodes[0].GetRemoteSelf(), config)
+                if err != nil </span><span class="cov0" title="0">{
+                        Error.Printf("Error creating %v-th node: %v", i, err)
+                        return nil, err
+                }</span>
+        }
+
+        <span class="cov0" title="0">return nodes, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package raft
+
+import (
+        "fmt"
+        "time"
+)
+
+// Config defines the various settings for a Raft cluster.
+type Config struct {
+        ElectionTimeout  time.Duration
+        HeartbeatTimeout time.Duration
+        ClusterSize      int
+        NodeIdSize       int
+        LogPath          string
+}
+
+// DefaultConfig returns the default config for a Raft cluster.
+func DefaultConfig() *Config <span class="cov8" title="1">{
+        config := new(Config)
+        config.ClusterSize = 3
+        config.ElectionTimeout = time.Millisecond * 150
+        config.HeartbeatTimeout = time.Millisecond * 50
+        config.NodeIdSize = 2
+        config.LogPath = "raftlogs"
+        return config
+}</span>
+
+// CheckConfig checks if a provided Raft config is valid.
+func CheckConfig(config *Config) error <span class="cov8" title="1">{
+        if config.HeartbeatTimeout &lt; 5*time.Millisecond </span><span class="cov0" title="0">{
+                return fmt.Errorf("Heartbeat timeout is too low")
+        }</span>
+
+        <span class="cov8" title="1">if config.ElectionTimeout &lt; 5*time.Millisecond </span><span class="cov0" title="0">{
+                return fmt.Errorf("Election timeout is too low")
+        }</span>
+
+        <span class="cov8" title="1">if config.ElectionTimeout &lt; config.HeartbeatTimeout </span><span class="cov0" title="0">{
+                return fmt.Errorf("The election timeout (%v) is less than the heartbeat timeout (%v)", config.ElectionTimeout, config.HeartbeatTimeout)
+        }</span>
+
+        <span class="cov8" title="1">if config.ClusterSize &lt;= 0 </span><span class="cov0" title="0">{
+                return fmt.Errorf("The cluster size must be positive")
+        }</span>
+
+        <span class="cov8" title="1">if config.NodeIdSize &lt;= 0 </span><span class="cov0" title="0">{
+                return fmt.Errorf("The node id size must be positive")
+        }</span>
+
+        <span class="cov8" title="1">if config.LogPath == "" </span><span class="cov0" title="0">{
+                return fmt.Errorf("The log path cannot be empty")
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">package raft
+
+import (
+        "bytes"
+        "encoding/binary"
+        "encoding/gob"
+        "errors"
+        "fmt"
+        "io"
+        "os"
+)
+
+// FileData represents a file to which a Raft node is writing its logs.
+type FileData struct {
+        // Active file descriptor of to file
+        fd *os.File
+
+        // Size of file after reading it in and after writes
+        size int64
+
+        // Filename of file
+        filename string
+
+        // Map from LogEntry index to size of file before that index starts; used only
+        // for the file storing the LogCache.
+        idxMap map[uint64]int64
+
+        // Is the fd open or not?
+        open bool
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// File I/O functions for StableState                                         //
+////////////////////////////////////////////////////////////////////////////////
+
+func openStableStateForWrite(fileData *FileData) error <span class="cov8" title="1">{
+        if fileExists(fileData.filename) </span><span class="cov8" title="1">{
+                fd, err := os.OpenFile(fileData.filename, os.O_APPEND|os.O_WRONLY, 0600)
+                fileData.fd = fd
+                fileData.open = true
+                return err
+        }</span>
+
+        <span class="cov0" title="0">return errors.New("StableState file does not exist")</span>
+}
+
+// CreateStableState opens the stable state log file with the right permissions.
+func CreateStableState(fileData *FileData) error <span class="cov8" title="1">{
+        fd, err := os.OpenFile(fileData.filename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+        fileData.fd = fd
+        fileData.open = true
+        return err
+}</span>
+
+// ReadStableState reads the stable store log file (or the backup if that fails),
+// and returns the decoded stableState.
+func ReadStableState(fileData *FileData) (*StableState, error) <span class="cov0" title="0">{
+        f, err := os.Open(fileData.filename)
+        if err != nil </span><span class="cov0" title="0">{
+                Error.Printf("unable to open stable store file: %v\n", err)
+        }</span>
+
+        <span class="cov0" title="0">stat, err := f.Stat()
+        if err != nil </span><span class="cov0" title="0">{
+                Error.Printf("unable to stat stable store file: %v\n", err)
+                f.Close()
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">ss, err := readStableStateEntry(f, int(stat.Size()))
+        f.Close()
+
+        if err != nil </span><span class="cov0" title="0">{
+                // For some reason we failed to read our stable state file, try backup file.
+                backupFilename := fmt.Sprintf("%v.bak", fileData.filename)
+                backupFile, err := os.Open(backupFilename)
+                if err != nil </span><span class="cov0" title="0">{
+                        Error.Printf("unable to read stable store backup file: %v\n", err)
+                        return nil, err
+                }</span>
+
+                <span class="cov0" title="0">stat, err := f.Stat()
+                if err != nil </span><span class="cov0" title="0">{
+                        Error.Printf("unable to stat stable store backup file: %v\n", err)
+                        backupFile.Close()
+                        return nil, err
+                }</span>
+
+                <span class="cov0" title="0">ss, err = readStableStateEntry(f, int(stat.Size()))
+                if err != nil </span><span class="cov0" title="0">{
+                        Error.Printf("unable to read stable storage or its backup: %v\n", err)
+                        backupFile.Close()
+                        return nil, err
+                }</span>
+
+                <span class="cov0" title="0">backupFile.Close()
+
+                // Successfully read backup file, copy it and make it the live log
+                err = os.Remove(fileData.filename)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+
+                <span class="cov0" title="0">err = copyFile(backupFilename, fileData.filename)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+
+                <span class="cov0" title="0">return ss, nil</span>
+        }
+
+        <span class="cov0" title="0">return ss, nil</span>
+}
+
+// WriteStableState writes the current node's stable state to a log file.
+func WriteStableState(fileData *FileData, ss StableState) error <span class="cov8" title="1">{
+        // Backup old stable state
+        backupFilename := fmt.Sprintf("%v.bak", fileData.filename)
+        err := backupStableState(fileData, backupFilename)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("Backup failed: %v", err)
+        }</span>
+
+        // Windows does not allow truncation of open file, must close first
+        <span class="cov8" title="1">fileData.fd.Close()
+
+        // Truncate live stable state i.e. empty it out
+        err = os.Truncate(fileData.filename, 0)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("Truncation failed: %v", err)
+        }</span>
+
+        // Open the log file
+        <span class="cov8" title="1">fd, err := os.OpenFile(fileData.filename, os.O_APPEND|os.O_WRONLY, 0600)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("unable to open stable state file: %v", err)
+        }</span>
+
+        <span class="cov8" title="1">fileData.fd = fd
+
+        // Write out stable state to live version
+        bytes, err := getStableStateBytes(ss)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">numBytes, err := fileData.fd.Write(bytes)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("unable to write to stable state file: %v", err)
+        }</span>
+
+        <span class="cov8" title="1">if numBytes != len(bytes) </span><span class="cov0" title="0">{
+                panic("did not write correct amount of bytes for some reason for ss")</span>
+        }
+
+        <span class="cov8" title="1">err = fileData.fd.Sync()
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("Sync #2 failed: %v", err)
+        }</span>
+
+        // Remove backup file
+        <span class="cov8" title="1">err = os.Remove(backupFilename)
+        if err != nil &amp;&amp; !os.IsNotExist(err) </span><span class="cov0" title="0">{
+                return fmt.Errorf("Remove failed: %v", err)
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+// backupStableState makes a backup copy of the given stable state log file
+func backupStableState(fileData *FileData, backupFilename string) error <span class="cov8" title="1">{
+        if fileData.open &amp;&amp; fileData.fd != nil </span><span class="cov8" title="1">{
+                err := fileData.fd.Close()
+                fileData.open = false
+                if err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("Closing file failed: %v", err)
+                }</span>
+        }
+
+        <span class="cov8" title="1">err := os.Remove(backupFilename)
+        if err != nil &amp;&amp; !os.IsNotExist(err) </span><span class="cov0" title="0">{
+                return fmt.Errorf("Remove failed: %v", err)
+        }</span>
+
+        <span class="cov8" title="1">err = copyFile(fileData.filename, backupFilename)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("File copy failed: %v", err)
+        }</span>
+
+        <span class="cov8" title="1">err = openStableStateForWrite(fileData)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("Opening stable state for writing failed: %v", err)
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+func getStableStateBytes(ss StableState) ([]byte, error) <span class="cov8" title="1">{
+        b := new(bytes.Buffer)
+        e := gob.NewEncoder(b)
+        err := e.Encode(ss)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">return b.Bytes(), nil</span>
+}
+
+func readStableStateEntry(f *os.File, size int) (*StableState, error) <span class="cov0" title="0">{
+        b := make([]byte, size)
+        leSize, err := f.Read(b)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">if leSize != size </span><span class="cov0" title="0">{
+                panic("The stable state log may be corrupt, cannot proceed")</span>
+        }
+
+        <span class="cov0" title="0">buff := bytes.NewBuffer(b)
+        var ss StableState
+        dataDecoder := gob.NewDecoder(buff)
+        err = dataDecoder.Decode(&amp;ss)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return &amp;ss, nil</span>
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// File I/O functions for LogCache                                            //
+////////////////////////////////////////////////////////////////////////////////
+
+func openRaftLogForWrite(fileData *FileData) error <span class="cov0" title="0">{
+        if fileExists(fileData.filename) </span><span class="cov0" title="0">{
+                fd, err := os.OpenFile(fileData.filename, os.O_APPEND|os.O_WRONLY, 0600)
+                fileData.fd = fd
+                fileData.open = true
+                return err
+        }</span>
+
+        <span class="cov0" title="0">return errors.New("Raftfile does not exist")</span>
+}
+
+// CreateRaftLog opens the log cache log file with the right permissions.
+func CreateRaftLog(fileData *FileData) error <span class="cov8" title="1">{
+        fd, err := os.OpenFile(fileData.filename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+        fileData.fd = fd
+        fileData.size = int64(0)
+        fileData.idxMap = make(map[uint64]int64)
+        fileData.open = true
+        return err
+}</span>
+
+// ReadRaftLog reads the log cache log file (or the backup if that fails),
+// and populates the decoded LogCache.
+func ReadRaftLog(fileData *FileData) (LogCache, error) <span class="cov0" title="0">{
+        f, err := os.Open(fileData.filename)
+        defer f.Close()
+        fileData.idxMap = make(map[uint64]int64)
+
+        entries := make(LogCache, 0)
+
+        fileLocation := int64(0)
+        for err != io.EOF </span><span class="cov0" title="0">{
+                size, err := readStructSize(f)
+                if err != nil </span><span class="cov0" title="0">{
+                        if err == io.EOF </span><span class="cov0" title="0">{
+                                break</span>
+                        }
+                        <span class="cov0" title="0">Error.Printf("Error reading struct size: %v at loc: %v\n", err, fileLocation)
+                        fileData.open = false
+                        return entries, err</span>
+                }
+
+                <span class="cov0" title="0">entry, err := readLogEntry(f, size)
+                if err != nil </span><span class="cov0" title="0">{
+                        Error.Printf("Error reading log entry: %v at loc: %v\n", err, fileLocation)
+                        fileData.open = false
+                        return entries, err
+                }</span>
+                <span class="cov0" title="0">fileData.idxMap[entry.Index] = fileLocation
+                fileLocation += INT_SIZE_BYTES + int64(size)
+                entries = append(entries, *entry)</span>
+        }
+
+        <span class="cov0" title="0">fileData.open = false
+        return entries, nil</span>
+}
+
+// AppendLogEntry writes the given log entry to the end of the log cache log file.
+func AppendLogEntry(fileData *FileData, entry *LogEntry) error <span class="cov8" title="1">{
+        sizeIdx := fileData.size
+
+        logBytes, err := getLogEntryBytes(entry)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov8" title="1">size, err := getSizeBytes(len(logBytes))
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">numBytesWritten, err := fileData.fd.Write(size)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">if int64(numBytesWritten) != INT_SIZE_BYTES </span><span class="cov0" title="0">{
+                panic("int gob size is not correct, cannot proceed")</span>
+        }
+
+        <span class="cov8" title="1">fileData.size += int64(numBytesWritten)
+
+        err = fileData.fd.Sync()
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">numBytesWritten, err = fileData.fd.Write(logBytes)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">if numBytesWritten != len(logBytes) </span><span class="cov0" title="0">{
+                panic("did not write correct amount of bytes for some reason for log entry")</span>
+        }
+
+        <span class="cov8" title="1">fileData.size += int64(numBytesWritten)
+
+        err = fileData.fd.Sync()
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        // Update index mapping for this entry
+        <span class="cov8" title="1">fileData.idxMap[entry.Index] = int64(sizeIdx)
+
+        return nil</span>
+}
+
+// TruncateLog removes the log entries at and after index from the log cache log file.
+func TruncateLog(raftLogFd *FileData, index uint64) error <span class="cov8" title="1">{
+        newFileSize, exist := raftLogFd.idxMap[index]
+        if !exist </span><span class="cov8" title="1">{
+                return fmt.Errorf("Truncation failed, log index %v doesn't exist\n", index)
+        }</span>
+
+        // Windows does not allow truncation of open file, must close first
+        <span class="cov0" title="0">raftLogFd.fd.Close()
+
+        err := os.Truncate(raftLogFd.filename, newFileSize)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">fd, err := os.OpenFile(raftLogFd.filename, os.O_APPEND|os.O_WRONLY, 0600)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("unable to open log cache log file: %v", err)
+        }</span>
+
+        <span class="cov0" title="0">raftLogFd.fd = fd
+
+        for i := index; i &lt; uint64(len(raftLogFd.idxMap)); i++ </span><span class="cov0" title="0">{
+                delete(raftLogFd.idxMap, i)
+        }</span>
+        <span class="cov0" title="0">raftLogFd.size = newFileSize
+
+        return nil</span>
+}
+
+const INT_SIZE_BYTES int64 = 5
+
+func getSizeBytes(size int) ([]byte, error) <span class="cov8" title="1">{
+        b := make([]byte, INT_SIZE_BYTES)
+
+        // The returned value of the number of bytes written may be less than
+        // INT_SIZE_BYTES but that's okay, they will be zero padded.
+        _ = binary.PutUvarint(b, uint64(size))
+
+        return b, nil
+}</span>
+
+func decodeSizeBytes(b []byte) (int, error) <span class="cov0" title="0">{
+        if int64(len(b)) != INT_SIZE_BYTES </span><span class="cov0" title="0">{
+                panic("length of size bytes are not the correct size")</span>
+        }
+        <span class="cov0" title="0">buf := bytes.NewBuffer(b)
+        size, err := binary.ReadUvarint(buf)
+        if err != nil </span><span class="cov0" title="0">{
+                return -1, err
+        }</span>
+        <span class="cov0" title="0">return int(size), nil</span>
+}
+
+func getLogEntryBytes(entry *LogEntry) ([]byte, error) <span class="cov8" title="1">{
+        b := new(bytes.Buffer)
+        e := gob.NewEncoder(b)
+        err := e.Encode(*entry)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">return b.Bytes(), nil</span>
+}
+
+func readStructSize(f *os.File) (int, error) <span class="cov0" title="0">{
+        // Read bytes for size value
+        b := make([]byte, INT_SIZE_BYTES)
+        sizeBytes, err := f.Read(b)
+
+        if err != nil </span><span class="cov0" title="0">{
+                return -1, err
+        }</span>
+
+        <span class="cov0" title="0">if int64(sizeBytes) != INT_SIZE_BYTES </span><span class="cov0" title="0">{
+                panic("The raftlog may be corrupt, cannot proceed")</span>
+        }
+
+        // Decode bytes as int, which is sizeof(LogEntry).
+        <span class="cov0" title="0">size, err := decodeSizeBytes(b)
+        if err != nil </span><span class="cov0" title="0">{
+                return -1, err
+        }</span>
+
+        <span class="cov0" title="0">return size, nil</span>
+}
+
+func readLogEntry(f *os.File, size int) (*LogEntry, error) <span class="cov0" title="0">{
+        b := make([]byte, size)
+        leSize, err := f.Read(b)
+
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">if leSize != size </span><span class="cov0" title="0">{
+                panic("The raftlog may be corrupt, cannot proceed")</span>
+        }
+
+        <span class="cov0" title="0">buff := bytes.NewBuffer(b)
+        var entry LogEntry
+        dataDecoder := gob.NewDecoder(buff)
+        err = dataDecoder.Decode(&amp;entry)
+
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return &amp;entry, nil</span>
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Utilities for file I/O                                                     //
+////////////////////////////////////////////////////////////////////////////////
+
+func fileExists(filename string) bool <span class="cov8" title="1">{
+        _, err := os.Stat(filename)
+        if err == nil </span><span class="cov8" title="1">{
+                return true
+        }</span><span class="cov0" title="0"> else if os.IsNotExist(err) </span><span class="cov0" title="0">{
+                return false
+        }</span><span class="cov0" title="0"> else {
+                panic(err)</span>
+        }
+}
+
+func getFileInfo(filename string) (int64, bool) <span class="cov8" title="1">{
+        stat, err := os.Stat(filename)
+        if err == nil </span><span class="cov0" title="0">{
+                return stat.Size(), true
+        }</span><span class="cov8" title="1"> else if os.IsNotExist(err) </span><span class="cov8" title="1">{
+                return 0, false
+        }</span><span class="cov0" title="0"> else {
+                panic(err)</span>
+        }
+}
+
+func copyFile(srcFile string, dstFile string) error <span class="cov8" title="1">{
+        src, err := os.Open(srcFile)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">dst, err := os.Create(dstFile)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">_, err = io.Copy(dst, src)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">err = src.Close()
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("Error closing src file: %v", err)
+        }</span>
+
+        <span class="cov8" title="1">err = dst.Close()
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("Error closing dst file: %v", err)
+        }</span>
+        <span class="cov8" title="1">return nil</span>
+}
+
+// RemoveLogs deletes the current node's logs from disk.
+func (r *RaftNode) RemoveLogs() error <span class="cov0" title="0">{
+        r.raftLogFd.fd.Close()
+        r.raftLogFd.open = false
+        err := os.Remove(r.raftLogFd.filename)
+        if err != nil </span><span class="cov0" title="0">{
+                r.Error("Unable to remove raftlog file")
+                return err
+        }</span>
+
+        <span class="cov0" title="0">r.raftMetaFd.fd.Close()
+        r.raftMetaFd.open = false
+        err = os.Remove(r.raftMetaFd.filename)
+        if err != nil </span><span class="cov0" title="0">{
+                r.Error("Unable to remove raftmeta file")
+                return err
+        }</span>
+
+        <span class="cov0" title="0">return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file4" style="display: none">package raft
+
+import (
+        "bytes"
+        "fmt"
+        "io/ioutil"
+        "log"
+        "os"
+
+        "google.golang.org/grpc/grpclog"
+)
+
+var Debug *log.Logger
+var Out *log.Logger
+var Error *log.Logger
+
+// Initialize the loggers
+func init() <span class="cov8" title="1">{
+        Debug = log.New(ioutil.Discard, "", log.Ltime|log.Lshortfile)
+        Out = log.New(os.Stdout, "", log.Ltime|log.Lshortfile)
+        Error = log.New(os.Stderr, "ERROR: ", log.Ltime|log.Lshortfile)
+
+        grpclog.SetLogger(log.New(ioutil.Discard, "", 0))
+}</span>
+
+// SetDebug turns printing debug strings on or off
+func SetDebug(enabled bool) <span class="cov0" title="0">{
+        if enabled </span><span class="cov0" title="0">{
+                Debug.SetOutput(os.Stdout)
+        }</span><span class="cov0" title="0"> else {
+                Debug.SetOutput(ioutil.Discard)
+        }</span>
+}
+
+// Out prints to standard output, prefaced with time and filename
+func (r *RaftNode) Out(formatString string, args ...interface{}) <span class="cov8" title="1">{
+        Out.Output(2, fmt.Sprintf("(%v/%v) %v", r.Id, r.State, fmt.Sprintf(formatString, args...)))
+}</span>
+
+// Debug prints to standard output if SetDebug was called with enabled=true, prefaced with time and filename
+func (r *RaftNode) Debug(formatString string, args ...interface{}) <span class="cov8" title="1">{
+        Debug.Output(2, fmt.Sprintf("(%v/%v) %v", r.Id, r.State, fmt.Sprintf(formatString, args...)))
+}</span>
+
+// Error prints to standard error, prefaced with "ERROR: ", time, and filename
+func (r *RaftNode) Error(formatString string, args ...interface{}) <span class="cov0" title="0">{
+        Error.Output(2, fmt.Sprintf("(%v/%v) %v", r.Id, r.State, fmt.Sprintf(formatString, args...)))
+}</span>
+
+func (s NodeState) String() string <span class="cov8" title="1">{
+        switch s </span>{
+        <span class="cov8" title="1">case FOLLOWER_STATE:
+                return "follower"</span>
+        <span class="cov8" title="1">case CANDIDATE_STATE:
+                return "candidate"</span>
+        <span class="cov8" title="1">case LEADER_STATE:
+                return "leader"</span>
+        <span class="cov8" title="1">case JOIN_STATE:
+                return "joining"</span>
+        <span class="cov0" title="0">default:
+                return "unknown"</span>
+        }
+}
+
+func (r *RaftNode) String() string <span class="cov0" title="0">{
+        return fmt.Sprintf("RaftNode{Id: %v, Addr: %v, State: %v}", r.Id, r.GetRemoteSelf().Addr, r.State)
+}</span>
+
+// FormatState returns a string representation of the Raft node's state
+func (r *RaftNode) FormatState() string <span class="cov0" title="0">{
+        var buffer bytes.Buffer
+        buffer.WriteString("Current node state:\n")
+
+        for i, node := range r.GetNodeList() </span><span class="cov0" title="0">{
+                buffer.WriteString(fmt.Sprintf("%v - %v", i, node))
+                local := *r.GetRemoteSelf()
+
+                if local == node </span><span class="cov0" title="0">{
+                        buffer.WriteString(" (local node)")
+                }</span>
+
+                <span class="cov0" title="0">if r.Leader != nil &amp;&amp; node == *r.Leader </span><span class="cov0" title="0">{
+                        buffer.WriteString(" (leader node)")
+                }</span>
+
+                <span class="cov0" title="0">buffer.WriteString("\n")</span>
+        }
+
+        <span class="cov0" title="0">buffer.WriteString(fmt.Sprintf("Current term: %v\n", r.GetCurrentTerm()))
+        buffer.WriteString(fmt.Sprintf("Current state: %v\n", r.State))
+        buffer.WriteString(fmt.Sprintf("Current commit index: %v\n", r.commitIndex))
+        buffer.WriteString(fmt.Sprintf("Current next index: %v\n", r.nextIndex))
+        buffer.WriteString(fmt.Sprintf("Current match index: %v\n", r.matchIndex))
+
+        return buffer.String()</span>
+}
+
+// FormatLogCache returns a string representation of the Raft node's log cache
+func (r *RaftNode) FormatLogCache() string <span class="cov0" title="0">{
+        var buffer bytes.Buffer
+        buffer.WriteString(fmt.Sprintf("Node %v LogCache:\n", r.Id))
+
+        for _, entry := range r.logCache </span><span class="cov0" title="0">{
+                buffer.WriteString(fmt.Sprintf(" idx:%v, term:%v\n", entry.Index, entry.TermId))
+        }</span>
+
+        <span class="cov0" title="0">return buffer.String()</span>
+}
+
+// FormatNodeListIds returns a string representation of IDs the list of nodes in the cluster
+func (r *RaftNode) FormatNodeListIds(ctx string) string <span class="cov8" title="1">{
+        var buffer bytes.Buffer
+        buffer.WriteString(fmt.Sprintf("%v (%v) r.NodeList = [", ctx, r.Id))
+
+        nodeList := r.GetNodeList()
+        for i, node := range nodeList </span><span class="cov8" title="1">{
+                buffer.WriteString(fmt.Sprintf("%v", node.Id))
+                if i &lt; len(nodeList)-1 </span><span class="cov8" title="1">{
+                        buffer.WriteString(",")
+                }</span>
+        }
+
+        <span class="cov8" title="1">buffer.WriteString("]\n")
+        return buffer.String()</span>
+}
+</pre>
+		
+		<pre class="file" id="file5" style="display: none">package raft
+
+import (
+        "errors"
+        "fmt"
+)
+
+// NetworkPolicy provides a way to explicitly disallow communication from a node
+// to other nodes in the cluster. Each RaftNode has its own network policy that
+// can block rpc calls to specific nodes, and/or block communication to all
+// other nodes. We encourage you to use this particularly in your test cases.
+type NetworkPolicy struct {
+        pauseWorld bool
+        rpcPolicy  map[string]bool
+}
+
+// NewNetworkPolicy creates a new network policy and initializes the rpcPolicy map
+func NewNetworkPolicy() *NetworkPolicy <span class="cov8" title="1">{
+        var tp NetworkPolicy
+        tp.rpcPolicy = make(map[string]bool)
+        return &amp;tp
+}</span>
+
+// ErrorNetworkPolicyDenied is returned when a request is barred due to the node
+var ErrorNetworkPolicyDenied = errors.New("the network policy has forbid this communication")
+
+func getCommId(a, b RemoteNode) string <span class="cov8" title="1">{
+        return fmt.Sprintf("%v_%v", a.Id, b.Id)
+}</span>
+
+// IsDenied checks our network policy to see if we are allowed to send or
+// receive messages with the given remote node.
+func (tp *NetworkPolicy) IsDenied(a, b RemoteNode) bool <span class="cov8" title="1">{
+        if tp.pauseWorld </span><span class="cov0" title="0">{
+                return true
+        }</span>
+        <span class="cov8" title="1">commStr := getCommId(a, b)
+        allowed, exists := tp.rpcPolicy[commStr]
+        return exists &amp;&amp; !allowed</span>
+}
+
+// RegisterPolicy registers whether or not communication is allowed from a to b.
+func (tp *NetworkPolicy) RegisterPolicy(a, b RemoteNode, allowed bool) <span class="cov0" title="0">{
+        commStr := getCommId(a, b)
+        tp.rpcPolicy[commStr] = allowed
+}</span>
+
+// PauseWorld temporarily enables / disables all network communication from the current node.
+func (tp *NetworkPolicy) PauseWorld(on bool) <span class="cov8" title="1">{
+        tp.pauseWorld = on
+}</span>
+</pre>
+		
+		<pre class="file" id="file6" style="display: none">package raft
+
+import (
+        "fmt"
+        "net"
+        "os"
+        "sync"
+        "time"
+
+        "google.golang.org/grpc"
+
+        "github.com/brown-csci1380/s18-adaoud-sagadre/cs138"
+        "github.com/brown-csci1380/s18-adaoud-sagadre/raft/hashmachine"
+)
+
+// NodeState represents one of four possible states a Raft node can be in.
+type NodeState int
+
+const (
+        FOLLOWER_STATE NodeState = iota
+        CANDIDATE_STATE
+        LEADER_STATE
+        JOIN_STATE
+)
+
+// StateMachine is a general interface defining the methods a Raft state machine
+// should implement. For this project, we use a HashMachine as our state machine.
+type StateMachine interface {
+        GetState() (state interface{}) // Useful for testing once you use type assertions to convert the state
+        ApplyCommand(command uint64, data []byte) (message string, err error)
+        FormatCommand(command uint64) (commandString string)
+}
+
+// RaftNode defines an individual Raft node.
+type RaftNode struct {
+        Id         string
+        State      NodeState
+        Leader     *RemoteNode
+        config     *Config
+        nodeMutex  sync.Mutex
+        IsShutdown bool
+
+        port          int
+        server        *grpc.Server
+        NetworkPolicy *NetworkPolicy
+
+        // Raft log cache (written to disk, do not use directly)
+        logCache  LogCache
+        raftLogFd FileData
+
+        // Stable state (written to disk, use helper methods)
+        stableState StableState
+        ssMutex     sync.Mutex //we don't need to use
+        raftMetaFd  FileData
+
+        // Leader specific volatile state
+        commitIndex uint64
+        lastApplied uint64
+        leaderMutex sync.Mutex
+        nextIndex   map[string]uint64
+        matchIndex  map[string]uint64
+
+        // Channels to send / receive various RPC messages (used in state functions)
+        appendEntries  chan AppendEntriesMsg
+        requestVote    chan RequestVoteMsg
+        registerClient chan RegisterClientMsg
+        clientRequest  chan ClientRequestMsg
+        gracefulExit   chan bool
+
+        // Replicated state machine (e.g. hash machine, kv-store etc.)
+        stateMachine StateMachine
+
+        // Client request map (used to store channels to respond through once a
+        // request has been processed)
+        requestsByCacheId map[string]chan ClientReply
+        requestsMutex     sync.Mutex
+}
+
+// CreateNode creates a new Raft node at the specified port, with the specified
+// config, and connects to the provided remote node. Returns a pointer to the
+// newly created Raft node.
+func CreateNode(localPort int, remoteAddr *RemoteNode, config *Config) (rp *RaftNode, err error) <span class="cov8" title="1">{
+        var r RaftNode
+        rp = &amp;r
+
+        r.config = config
+        r.IsShutdown = false
+
+        var conn net.Listener
+        // Initialize network policy
+        r.NetworkPolicy = NewNetworkPolicy()
+        r.NetworkPolicy.PauseWorld(false)
+
+        // Initialize leader specific state
+        r.commitIndex = 0
+        r.lastApplied = 0
+        r.nextIndex = make(map[string]uint64)
+        r.matchIndex = make(map[string]uint64)
+
+        // Initialize RPC channels
+        r.appendEntries = make(chan AppendEntriesMsg)
+        r.requestVote = make(chan RequestVoteMsg)
+        r.registerClient = make(chan RegisterClientMsg)
+        r.clientRequest = make(chan ClientRequestMsg)
+        r.gracefulExit = make(chan bool)
+
+        // Initialize state machine (in Puddlestore, you'll switch this with your
+        // own state machine)
+        r.stateMachine = new(hashmachine.HashMachine)
+
+        // Initialize client request cache
+        r.requestsByCacheId = make(map[string]chan ClientReply)
+
+        // Open listener on port...
+        switch </span>{
+        <span class="cov0" title="0">case localPort != 0 &amp;&amp; remoteAddr != nil:
+                conn, err = OpenPort(localPort)
+                if err != nil </span><span class="cov0" title="0">{
+                        return
+                }</span>
+        <span class="cov0" title="0">case localPort != 0:
+                conn, err = OpenPort(localPort)
+                if err != nil </span><span class="cov0" title="0">{
+                        return
+                }</span>
+        <span class="cov8" title="1">case remoteAddr != nil:
+                conn, localPort, err = cs138.OpenListener()
+                if err != nil </span><span class="cov0" title="0">{
+                        return
+                }</span>
+        <span class="cov8" title="1">default:
+                conn, localPort, err = cs138.OpenListener()
+                if err != nil </span><span class="cov0" title="0">{
+                        return
+                }</span>
+        }
+
+        // Create node ID based on listener address
+        <span class="cov8" title="1">r.Id = AddrToId(conn.Addr().String(), config.NodeIdSize)
+
+        r.port = localPort
+        Out.Printf("Started node with id:%v, listening at %v\n", r.Id, conn.Addr().String())
+
+        // Initialize stable store
+        freshNode, err := r.initStableStore()
+        if err != nil </span><span class="cov0" title="0">{
+                Error.Printf("Error intitializing the stable store: %v", err)
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">r.setRemoteSelf(&amp;RemoteNode{Id: r.Id, Addr: conn.Addr().String()})
+
+        // Start RPC server
+        serverOptions := []grpc.ServerOption{}
+        r.server = grpc.NewServer(serverOptions...)
+        RegisterRaftRPCServer(r.server, &amp;r)
+        go r.server.Serve(conn)
+
+        if freshNode </span><span class="cov8" title="1">{
+                // If current node is being newly created (as opposed to being restored
+                // from stable state on disk):
+                // - Connect to remote node if provided and join the cluster
+                // - Else, start a cluster and wait for other nodes to join
+                r.State = JOIN_STATE
+                if remoteAddr != nil </span><span class="cov8" title="1">{
+                        err = remoteAddr.JoinRPC(&amp;r)
+                }</span><span class="cov8" title="1"> else {
+                        Out.Printf("Waiting to start cluster until all have joined\n")
+                        go r.startCluster()
+                }</span>
+        }<span class="cov0" title="0"> else {
+                // If current node is being restored from stable state on disk, start
+                // running it in the follower state.
+                r.State = FOLLOWER_STATE
+                go r.run()
+        }</span>
+
+        <span class="cov8" title="1">return</span>
+}
+
+// startCluster puts the current Raft node on hold until the required number of
+// peers join the cluster. Once they do, it starts the peers via a StartNodeRPC
+// call, and then starts the current node in the follower state.
+func (r *RaftNode) startCluster() <span class="cov8" title="1">{
+        r.nodeMutex.Lock()
+        r.AppendToNodeList(*r.GetRemoteSelf())
+        r.nodeMutex.Unlock()
+
+        // Wait for all nodes to join cluster...
+        for len(r.GetNodeList()) &lt; r.config.ClusterSize </span><span class="cov8" title="1">{
+                time.Sleep(time.Millisecond * 100)
+        }</span>
+
+        // Start other nodes
+        <span class="cov8" title="1">for _, node := range r.GetNodeList() </span><span class="cov8" title="1">{
+                if r.Id != node.Id </span><span class="cov8" title="1">{
+                        Out.Printf("(%v) Starting node-%v\n", r.Id, node.Id)
+                        err := node.StartNodeRPC(r, r.GetNodeList())
+                        if err != nil </span><span class="cov0" title="0">{
+                                Error.Printf("Unable to start node: %v", err)
+                        }</span>
+                }
+        }
+
+        // Start the current Raft node, initially in follower state
+        <span class="cov8" title="1">go r.run()</span>
+}
+
+// stateFunction is a function defined on a Raft node, that while executing,
+// handles the logic of the current state. When the time comes to transition to
+// another state, the function returns the next function to execute.
+type stateFunction func() stateFunction
+
+func (r *RaftNode) run() <span class="cov8" title="1">{
+        var curr stateFunction = r.doFollower
+        for curr != nil </span><span class="cov8" title="1">{
+                curr = curr()
+        }</span>
+}
+
+// Join adds the fromNode to the current Raft cluster.
+func (r *RaftNode) Join(fromNode *RemoteNode) error <span class="cov8" title="1">{
+        r.nodeMutex.Lock()
+        defer r.nodeMutex.Unlock()
+
+        if len(r.GetNodeList()) == r.config.ClusterSize </span><span class="cov0" title="0">{
+                for _, node := range r.GetNodeList() </span><span class="cov0" title="0">{
+                        if node.Id == fromNode.Id </span><span class="cov0" title="0">{
+                                node.StartNodeRPC(r, r.GetNodeList())
+                                return nil
+                        }</span>
+                }
+
+                <span class="cov0" title="0">r.Error("Warning! Unrecognized node tried to join after all other nodes have joined.\n")
+                return fmt.Errorf("all nodes have already joined this Raft cluster")</span>
+        }
+
+        <span class="cov8" title="1">r.AppendToNodeList(*fromNode)
+        return nil</span>
+}
+
+// StartNode is invoked on us by a remote node, and starts the current node in follower state.
+func (r *RaftNode) StartNode(req *StartNodeRequest) error <span class="cov8" title="1">{
+        r.nodeMutex.Lock()
+        defer r.nodeMutex.Unlock()
+
+        r.SetNodeList(req.NodeList)
+        Out.Println(r.FormatNodeListIds("StartNode"))
+
+        // Start the current Raft node, initially in follower state
+        go r.run()
+
+        return nil
+}</span>
+
+type AppendEntriesMsg struct {
+        request *AppendEntriesRequest
+        reply   chan AppendEntriesReply
+}
+
+// AppendEntries is invoked on us by a remote node, and sends the request and a
+// reply channel to the stateFunction.
+func (r *RaftNode) AppendEntries(req *AppendEntriesRequest) (AppendEntriesReply, error) <span class="cov8" title="1">{
+        //r.Debug("AppendEntries request received\n")
+        reply := make(chan AppendEntriesReply)
+        r.appendEntries &lt;- AppendEntriesMsg{req, reply}
+        return &lt;-reply, nil
+}</span>
+
+type RequestVoteMsg struct {
+        request *RequestVoteRequest
+        reply   chan RequestVoteReply
+}
+
+// RequestVote is invoked on us by a remote node, and sends the request and a
+// reply channel to the stateFunction.
+func (r *RaftNode) RequestVote(req *RequestVoteRequest) (RequestVoteReply, error) <span class="cov8" title="1">{
+        r.Debug("RequestVote request received\n")
+        reply := make(chan RequestVoteReply)
+        r.requestVote &lt;- RequestVoteMsg{req, reply}
+        return &lt;-reply, nil
+}</span>
+
+type RegisterClientMsg struct {
+        request *RegisterClientRequest
+        reply   chan RegisterClientReply
+}
+
+// RegisterClient is invoked on us by a client, and sends the request and a
+// reply channel to the stateFunction. If the cluster hasn't started yet, it
+// returns the corresponding RegisterClientReply.
+func (r *RaftNode) RegisterClient(req *RegisterClientRequest) (RegisterClientReply, error) <span class="cov8" title="1">{
+        r.Debug("RegisterClientRequest received\n")
+        reply := make(chan RegisterClientReply)
+        // If cluster hasn't started yet, return
+        if r.State == JOIN_STATE </span><span class="cov8" title="1">{
+                return RegisterClientReply{
+                        Status:     ClientStatus_CLUSTER_NOT_STARTED,
+                        ClientId:   0,
+                        LeaderHint: nil,
+                }, nil
+        }</span>
+        // Send request down channel to be processed by current stateFunction
+        <span class="cov8" title="1">r.registerClient &lt;- RegisterClientMsg{req, reply}
+        return &lt;-reply, nil</span>
+}
+
+type ClientRequestMsg struct {
+        request *ClientRequest
+        reply   chan ClientReply
+}
+
+// ClientRequest is invoked on us by a client, and sends the request and a
+// reply channel to the stateFunction. If the cluster hasn't started yet, it
+// returns the corresponding ClientReply.
+func (r *RaftNode) ClientRequest(req *ClientRequest) (ClientReply, error) <span class="cov8" title="1">{
+        r.Debug("ClientRequest request received\n")
+
+        // If cluster hasn't started yet, return
+        if r.State == JOIN_STATE </span><span class="cov0" title="0">{
+                return ClientReply{
+                        Status:     ClientStatus_CLUSTER_NOT_STARTED,
+                        Response:   "",
+                        LeaderHint: nil,
+                }, nil
+        }</span>
+
+        <span class="cov8" title="1">reply := make(chan ClientReply)
+        cr, exists := r.GetCachedReply(*req)
+
+        if exists </span><span class="cov8" title="1">{
+                // If the request has been cached, reply with existing response
+                return *cr, nil
+        }</span>
+
+        // Else, send request down channel to be processed by current stateFunction
+        <span class="cov8" title="1">r.clientRequest &lt;- ClientRequestMsg{req, reply}
+        return &lt;-reply, nil</span>
+}
+
+// Exit abruptly shuts down the current node's process, including the GRPC server.
+func (r *RaftNode) Exit() <span class="cov0" title="0">{
+        Out.Printf("Abruptly shutting down node!")
+        os.Exit(0)
+}</span>
+
+// GracefulExit sends a signal down the gracefulExit channel, in order to enable
+// a safe exit from the cluster, handled by the current stateFunction.
+func (r *RaftNode) GracefulExit() <span class="cov0" title="0">{
+        r.NetworkPolicy.PauseWorld(true)
+        Out.Printf("%v Gracefully shutting down node!", r.Id)
+        r.IsShutdown = true
+
+        if r.State != JOIN_STATE </span><span class="cov0" title="0">{
+                r.gracefulExit &lt;- true
+        }</span>
+
+        <span class="cov0" title="0">r.server.GracefulStop()</span>
+}
+</pre>
+		
+		<pre class="file" id="file7" style="display: none">package raft
+
+import (
+        "math"
+)
+
+// doCandidate implements the logic for a Raft node in the candidate state.
+func (r *RaftNode) doCandidate() stateFunction <span class="cov8" title="1">{
+        r.Out("Transitioning to CANDIDATE_STATE")
+        r.State = CANDIDATE_STATE
+        // TODO: Students should implement this method
+        // Hint: perform any initial work, and then consider what a node in the
+        // candidate state should do when it receives an incoming message on every
+        // possible channel.
+
+        // initial work to ask other nodes for a vote
+        r.setCurrentTerm(r.GetCurrentTerm()+1)
+        r.Leader = nil
+        r.setVotedFor(r.Id)
+
+        electionResults := make(chan bool)
+        fallbackChan := make(chan bool)
+
+        // note: the candidate code increments the term before we enter doCandidate
+        go r.requestVotes(electionResults, fallbackChan, r.GetCurrentTerm())
+        timeout := randomTimeout(r.config.ElectionTimeout)
+
+        // handling all possible channels
+        for </span><span class="cov8" title="1">{
+                select </span>{
+                <span class="cov8" title="1">case &lt;- timeout:
+                        // we did not win the election so we want to increment our term
+                        // and become a candidate again for a new election cycle
+                        return r.doCandidate</span>
+                <span class="cov8" title="1">case result := &lt;- electionResults:
+                        if result </span><span class="cov8" title="1">{
+                                return r.doLeader
+                        }</span><span class="cov0" title="0"> else {
+                                r.setVotedFor("")
+                                return r.doFollower
+                        }</span>
+                <span class="cov0" title="0">case goBack := &lt;- fallbackChan:
+                        if goBack </span><span class="cov0" title="0">{
+                                r.setVotedFor("")
+                                return r.doFollower
+                        }</span>
+                <span class="cov8" title="1">case msg := &lt;- r.appendEntries: // type AppendEntriesMsg
+                        _, goBack := r.handleAppendEntries(msg)
+                        if goBack </span><span class="cov8" title="1">{
+                                r.setVotedFor("")
+                                return r.doFollower
+                        }</span>
+
+                <span class="cov8" title="1">case msg := &lt;- r.requestVote: // type RequestVoteMsg
+                        // at this point you have already voted for yourself
+                        goBack := r.handleCompetingRequestVote(msg)
+                        if goBack </span><span class="cov8" title="1">{
+                                return r.doFollower
+                        }</span>
+                <span class="cov8" title="1">case msg := &lt;- r.registerClient: // type RegisterClientMsg
+                        r.handleCandidateRegisterClient(msg)</span>
+                <span class="cov0" title="0">case msg := &lt;- r.clientRequest: // type ClientRequestMsg
+                        r.handleCandidateClientRequest(msg)</span>
+                <span class="cov0" title="0">case shutdown := &lt;- r.gracefulExit: // type bool
+                        // clean up
+                        if shutdown </span><span class="cov0" title="0">{
+                                return nil
+                        }</span>
+                }
+        }
+}
+
+// requestVotes is called to request votes from all other nodes. It takes in a
+// channel on which the result of the vote should be sent over: true for a
+// successful election, false otherwise.
+func (r *RaftNode) requestVotes(electionResults chan bool, fallbackChan chan bool, currTerm uint64) <span class="cov8" title="1">{
+        // TODO: Students should implement this method
+
+        // send RPC to all nodes, retry if the node returns an error
+        requestVoteRequest := RequestVoteRequest{
+                Term: currTerm, 
+                Candidate: r.GetRemoteSelf(), 
+                LastLogIndex: r.getLastLogIndex(), 
+                LastLogTerm: r.getLogEntry(r.getLastLogIndex()).GetTermId(),
+        }
+        
+        otherNodes := r.getOtherNodes() // []RemoteNode
+        electionResultChan := make(chan bool)
+        for _, remoteNode := range otherNodes </span><span class="cov8" title="1">{
+                go r.requestSingleVote(remoteNode, requestVoteRequest, electionResultChan, fallbackChan)
+        }</span>
+
+        <span class="cov8" title="1">mid := int(math.Floor(float64(r.config.ClusterSize)/2));
+        successCount := 1
+        //nayCount := 0
+        for </span><span class="cov8" title="1">{
+                select </span>{
+                        <span class="cov8" title="1">case electionResult := &lt;- electionResultChan:
+                                if electionResult </span><span class="cov8" title="1">{
+                                        successCount++
+                                        if successCount &gt; mid </span><span class="cov8" title="1">{
+                                                electionResults &lt;- true
+                                                return
+                                        }</span>
+                                }
+                }
+                
+        }
+
+        <span class="cov0" title="0">return</span>
+}
+
+func (r *RaftNode) requestSingleVote(remoteNode RemoteNode, req RequestVoteRequest, 
+                electionResultChan chan bool, fallbackChan chan bool) <span class="cov8" title="1">{
+        requestVoteReply, err := remoteNode.RequestVoteRPC(r, &amp;req)
+        if (err != nil || req.Term != r.GetCurrentTerm()) </span><span class="cov0" title="0">{
+                return
+        }</span>
+        <span class="cov8" title="1">if requestVoteReply.GetTerm() &gt; r.GetCurrentTerm() </span><span class="cov0" title="0">{
+                Debug.Printf("Vote reponse tells me to fallback")
+                r.setCurrentTerm(requestVoteReply.GetTerm()) // update own term to latest term
+                fallbackChan &lt;- true
+                return // do not bother sending any more vote requests
+        }</span>
+
+        <span class="cov8" title="1">if requestVoteReply.GetVoteGranted() </span><span class="cov8" title="1">{
+                Debug.Printf("Vote reponse good")
+                electionResultChan &lt;- true
+        }</span><span class="cov8" title="1"> else {
+                Debug.Printf("Vote reponse bad")
+                electionResultChan &lt;- false
+        }</span>
+}
+
+// handleCompetingRequestVote handles an incoming vote request when the current
+// node is in the candidate or leader state. It returns true if the caller
+// should fall back to the follower state, false otherwise.
+func (r *RaftNode) handleCompetingRequestVote(msg RequestVoteMsg) (fallback bool) <span class="cov8" title="1">{
+        // TODO: Students should implement this method
+        state := r.State
+        if state != CANDIDATE_STATE &amp;&amp; state != LEADER_STATE </span><span class="cov0" title="0">{
+                return false // default return false, this case should not happen
+        }</span>
+        <span class="cov8" title="1">request := msg.request // a pointer
+        //Debug.Printf("request term: %v, my term: %v", request.GetTerm(),r.GetCurrentTerm())
+        if request.GetTerm() &lt; r.GetCurrentTerm() </span><span class="cov0" title="0">{
+                //Out.Printf("A")
+                r.voteDenied(msg)
+                return false
+        }</span>
+        <span class="cov8" title="1">lastLogIndex := r.getLastLogIndex()
+        lastLogTerm := r.getLogEntry(lastLogIndex).GetTermId()
+        if (lastLogTerm &lt; request.LastLogTerm) ||
+                (lastLogTerm == request.LastLogTerm &amp;&amp; 
+                request.LastLogIndex &gt; lastLogIndex) </span><span class="cov0" title="0">{
+                                        //Out.Printf("B")
+
+                if r.Leader != nil </span><span class="cov0" title="0">{
+                        r.Leader = nil // make sure our leader field is nil
+                }</span>
+                <span class="cov0" title="0">r.setCurrentTerm(request.GetTerm())
+                r.setVotedFor(request.GetCandidate().GetId())
+                r.voteGranted(msg) // writes back to chan in the msg
+                return true</span>
+        }
+        <span class="cov8" title="1">if (lastLogTerm == request.LastLogTerm) &amp;&amp; (lastLogIndex == request.LastLogIndex) &amp;&amp; (request.GetTerm() &gt; r.GetCurrentTerm()) </span><span class="cov8" title="1">{
+                //Out.Printf("C")
+                
+                r.voteGranted(msg)
+                return true
+        }</span>
+        //Out.Printf("D")
+
+        // this is necessarily the case where request.GetTerm() == r.GetCurrentTerm()
+        <span class="cov8" title="1">r.voteDenied(msg)
+        return false</span>        
+}
+
+func (r *RaftNode) handleCandidateRegisterClient(msg RegisterClientMsg) <span class="cov8" title="1">{
+        response := RegisterClientReply {
+                Status: ClientStatus_ELECTION_IN_PROGRESS,
+                ClientId: 0, //client will ignore
+                LeaderHint: r.GetRemoteSelf(),
+        }
+        msg.reply &lt;- response
+}</span>
+
+func (r *RaftNode) handleCandidateClientRequest(msg ClientRequestMsg) <span class="cov0" title="0">{
+        response := ClientReply {
+                Status: ClientStatus_ELECTION_IN_PROGRESS,
+                Response: "ELECTION IN PROGRESS, UNABLE TO PERFORM REQUEST", //client will ignore
+                LeaderHint: r.GetRemoteSelf(), 
+        }
+        msg.reply &lt;- response        
+}</span>
+
+func (r *RaftNode) getOtherNodes() []RemoteNode <span class="cov8" title="1">{
+        remoteNodes := r.GetNodeList()
+        otherNodes := make([]RemoteNode, 0)
+        for i:=0; i &lt; len(remoteNodes); i++ </span><span class="cov8" title="1">{
+                if remoteNodes[i].Id != r.Id </span><span class="cov8" title="1">{
+                        otherNodes = append(otherNodes, remoteNodes[i])
+                }</span>
+        }
+        <span class="cov8" title="1">return otherNodes</span>
+}</pre>
+		
+		<pre class="file" id="file8" style="display: none">package raft
+
+import (
+        "strings"
+        "math"
+)
+
+// doFollower implements the logic for a Raft node in the follower state.
+func (r *RaftNode) doFollower() stateFunction <span class="cov8" title="1">{
+        r.Out("Transitioning to FOLLOWER_STATE")
+        r.State = FOLLOWER_STATE
+
+        // TODO: Students should implement this method
+        // Hint: perform any initial work, and then consider what a node in the
+        // follower state should do when it receives an incoming message on every
+        // possible channel.
+
+        //need to check other things that I shud reset
+        //r.setVotedFor("")
+        timeout := randomTimeout(r.config.ElectionTimeout)
+        for </span><span class="cov8" title="1">{
+                select </span>{
+                <span class="cov8" title="1">case &lt;-timeout:
+                        Debug.Printf("Timeout of Follower")
+                        return r.doCandidate</span>
+                <span class="cov8" title="1">case msg := &lt;- r.appendEntries: // type AppendEntriesMsg
+                        resetTimeout, fallback := r.handleAppendEntries(msg)
+                        if (resetTimeout || fallback) </span><span class="cov8" title="1">{
+                                timeout = randomTimeout(r.config.ElectionTimeout)
+                        }</span>
+                <span class="cov8" title="1">case msg := &lt;- r.requestVote: // type RequestVoteMsg
+                        if (r.handleFollowerRequestVote(msg)) </span><span class="cov0" title="0">{
+                                timeout = randomTimeout(r.config.ElectionTimeout)
+                        }</span>
+                <span class="cov8" title="1">case msg := &lt;- r.registerClient: // type RegisterClientMsg
+                        r.handleFollowerRegisterClient(msg)</span>
+                <span class="cov8" title="1">case msg := &lt;- r.clientRequest: // type ClientRequestMsg
+                        r.handleFollowerClientRequest(msg)</span>
+                <span class="cov0" title="0">case shutdown := &lt;-r.gracefulExit:
+                        //idk what else should be done
+                        if shutdown </span><span class="cov0" title="0">{
+                                return nil
+                        }</span>
+                }
+        }
+        <span class="cov0" title="0">return nil</span>
+}
+
+func (r *RaftNode) handleFollowerClientRequest(msg ClientRequestMsg) <span class="cov8" title="1">{
+        response := ClientReply{}
+        if (r.Leader == nil) </span><span class="cov0" title="0">{
+                response = ClientReply{
+                        Status: ClientStatus_REQ_FAILED,
+                        Response: "NOT LEADER, UNABLE TO PERFORM REQUEST", //client will ignore
+                        LeaderHint: nil,
+                }
+        }</span><span class="cov8" title="1"> else {
+                response = ClientReply{
+                        Status: ClientStatus_NOT_LEADER,
+                        Response: "NOT LEADER, UNABLE TO PERFORM REQUEST", //client will ignore
+                        LeaderHint: r.Leader,
+                }
+        }</span>
+        <span class="cov8" title="1">msg.reply &lt;- response</span>        
+}
+
+func (r *RaftNode) handleFollowerRegisterClient(msg RegisterClientMsg) <span class="cov8" title="1">{
+        response := RegisterClientReply{}
+        if (r.Leader == nil) </span><span class="cov0" title="0">{
+                response = RegisterClientReply{
+                        Status: ClientStatus_REQ_FAILED,
+                        ClientId: 0, //client will ignore
+                        LeaderHint: nil,
+                }
+        }</span><span class="cov8" title="1"> else {
+                response = RegisterClientReply{
+                        Status: ClientStatus_NOT_LEADER,
+                        ClientId: 0, //client will ignore
+                        LeaderHint: r.Leader,
+                }
+        }</span>
+        <span class="cov8" title="1">msg.reply &lt;- response</span>
+}
+
+func (r *RaftNode) handleFollowerRequestVote(msg RequestVoteMsg) bool <span class="cov8" title="1">{
+        if (msg.request.Term &lt; r.GetCurrentTerm()) </span><span class="cov0" title="0">{
+                Debug.Printf("Denied vote, reason: small term")
+                r.voteDenied(msg)
+                return false
+        }</span>
+        <span class="cov8" title="1">votedFor := r.GetVotedFor()
+        if (strings.Compare(msg.request.Candidate.Id, votedFor) == 0) </span><span class="cov0" title="0">{
+                //candidate re-requesting vote
+                r.voteGranted(msg)
+                return true
+        }</span><span class="cov8" title="1"> else if (strings.Compare(votedFor, "") != 0) </span><span class="cov8" title="1">{
+                //we've already voted for someone else
+                Debug.Printf("Denied vote, reason: already voted for other")
+
+                r.voteDenied(msg)
+                return false
+        }</span><span class="cov0" title="0"> else {
+                //we have yet to vote
+                lastLogIndex := r.getLastLogIndex()
+                lastLogEntry := r.getLogEntry(lastLogIndex)
+                if (msg.request.LastLogTerm &gt; lastLogEntry.TermId) </span><span class="cov0" title="0">{
+                        //will vote for node
+                        r.voteGranted(msg)
+                        return true
+                }</span><span class="cov0" title="0"> else if (msg.request.LastLogTerm == lastLogEntry.TermId &amp;&amp;
+                        msg.request.LastLogIndex &gt;= lastLogIndex) </span><span class="cov0" title="0">{
+                        //will vote for node
+                        r.voteGranted(msg)
+                        return true
+                }</span><span class="cov0" title="0"> else {
+                        Debug.Printf("Denied vote, reason: log is older than mine")
+                        r.voteDenied(msg)
+                        return false
+                }</span>
+        }        
+}
+
+
+//helper function to grant a vote to node in request vote message
+func (r *RaftNode) voteGranted(msg RequestVoteMsg) <span class="cov8" title="1">{
+        r.setCurrentTerm(msg.request.Term)
+        r.setVotedFor(msg.request.Candidate.Id);
+        r.Leader = msg.request.Candidate;
+        response := RequestVoteReply{
+                Term: r.GetCurrentTerm(),
+                VoteGranted: true,
+        }
+        msg.reply &lt;- response
+}</span>
+
+//helper function to deny a vote to node in request vote message
+func (r *RaftNode) voteDenied(msg RequestVoteMsg) <span class="cov8" title="1">{
+        response := RequestVoteReply{
+                Term: r.GetCurrentTerm(),
+                VoteGranted: false,
+        }
+        msg.reply &lt;- response
+}</span>
+
+// Applies actions to state machine from lastApplied to commitIndex, updates lastApplied
+func (r *RaftNode) processLogEntries() <span class="cov8" title="1">{
+        for (r.commitIndex &gt;= r.lastApplied) </span><span class="cov8" title="1">{
+                toBeApplied := r.getLogEntry(r.lastApplied)
+                r.processLogEntry(*toBeApplied)
+                r.lastApplied += 1
+        }</span>
+}
+
+
+// handleAppendEntries handles an incoming AppendEntriesMsg. It is called by a
+// node in a follower, candidate, or leader state. It returns two booleans:
+// - resetTimeout is true if the follower node should reset the election timeout
+// - fallback is true if the node should become a follower again
+func (r *RaftNode) handleAppendEntries(msg AppendEntriesMsg) (resetTimeout, fallback bool) <span class="cov8" title="1">{
+        // TODO: Students should implement this method
+
+        request := msg.request // *AppendEntriesRequest
+        reply := msg.reply // chan AppendEntriesReply
+
+        //valid for all 3 states, verify leader-leader interaction tho
+        if (request.GetTerm() &lt; r.GetCurrentTerm()) </span><span class="cov0" title="0">{
+                response := AppendEntriesReply{
+                        Term: r.GetCurrentTerm(),
+                        Success: false,
+                }
+                reply &lt;- response
+                return false, false
+        }</span>
+        //can't have 2 leaders in same term as it would imply a node voted twice in same term.
+        //Therefore, if you are a leader and receive AppendEntriesMsg and the term is not 
+        //smaller than yours, term must be greater than yours (unless bug elsewhere). Thus,
+        //should fallback and perform same steps as Follower and Candidate State.
+
+        // accept the request as leader, fallback should be true in all return cases
+        <span class="cov8" title="1">r.Leader = request.GetLeader()
+        r.setCurrentTerm(request.GetTerm())
+        logEntry := r.getLogEntry(request.GetPrevLogIndex())
+        if (logEntry == nil || logEntry.GetTermId() != request.GetPrevLogTerm()) </span><span class="cov0" title="0">{
+                //r.Out("App1")
+                response := AppendEntriesReply{
+                        Term: r.GetCurrentTerm(),
+                        Success: false,
+                }
+                reply &lt;- response
+                return true, true        
+        }</span><span class="cov8" title="1"> else {
+                //PrevLogIndex exists with PrevLogTerm matched
+                newLogEntry := r.getLogEntry(request.GetPrevLogIndex()+1)
+                if (logEntry != nil &amp;&amp; newLogEntry.GetTermId() != request.GetTerm() ) </span><span class="cov8" title="1">{
+                        //NOT SURE IF THIS IS WHAT THEY MEAN IN STEP 3 of append rpc
+                        r.truncateLog(request.GetPrevLogIndex()+1)
+                }</span>
+                <span class="cov8" title="1">for _, entry := range request.GetEntries() </span><span class="cov8" title="1">{
+                        if r.getLastLogIndex() &lt; entry.GetIndex()</span><span class="cov8" title="1">{
+                                //r.Out("App2")
+                                r.appendLogEntry(*entry)
+                        }</span><span class="cov8" title="1"> else {
+                                //r.Out("App3")
+                                continue</span>
+                        }
+                }
+                <span class="cov8" title="1">if (request.GetLeaderCommit() &gt; r.commitIndex) </span><span class="cov8" title="1">{
+                        r.commitIndex = uint64(math.Min(float64(request.GetLeaderCommit()), 
+                                float64(r.getLastLogIndex())))
+                }</span>
+                <span class="cov8" title="1">r.processLogEntries()
+                response := AppendEntriesReply{
+                        Term: r.GetCurrentTerm(),
+                        Success: true,
+                }
+                reply &lt;- response
+                return true, true</span>
+        }
+        //r.Out("AppNEVER SHUD HAPPEn")
+        <span class="cov0" title="0">return</span>
+}
+</pre>
+		
+		<pre class="file" id="file9" style="display: none">package raft
+
+import (
+        "time"
+        "math"
+)
+
+// doLeader implements the logic for a Raft node in the leader state.
+func (r *RaftNode) doLeader() stateFunction <span class="cov8" title="1">{
+        r.Out("Transitioning to LEADER_STATE")
+
+        r.State = LEADER_STATE
+
+        // TODO: Students should implement this method
+        // Hint: perform any initial work, and then consider what a node in the
+        // leader state should do when it receives an incoming message on every
+        // possible channel.
+
+        r.onLeaderStart()
+        fallbackChan := make(chan bool)
+        sentToMajorityChan := make(chan bool)
+        timeout := time.After(r.config.HeartbeatTimeout)
+        go r.SendHeartbeats(fallbackChan, sentToMajorityChan)
+        for </span><span class="cov8" title="1">{
+                select </span>{
+                <span class="cov8" title="1">case &lt;- timeout:
+                        go r.SendHeartbeats(fallbackChan, sentToMajorityChan)
+                        timeout = time.After(r.config.HeartbeatTimeout)</span>
+                <span class="cov0" title="0">case fallback := &lt;- fallbackChan:
+
+                        if fallback </span><span class="cov0" title="0">{
+                                //r.Out("FALLBACK HAPP")
+                                r.onLeaderExit()
+                                return r.doFollower
+                        }</span>
+                <span class="cov8" title="1">case sentToMajority := &lt;- sentToMajorityChan:
+                        if sentToMajority </span><span class="cov8" title="1">{
+                                matchIndex := r.findFurthestValidMatchIndex()
+                                if (matchIndex &gt; r.commitIndex) </span><span class="cov8" title="1">{
+                                        r.commitIndex = matchIndex
+                                        go r.processLogEntries()
+                                }</span>
+                        }
+                <span class="cov0" title="0">case msg := &lt;- r.requestVote: // type RequestVoteMsg
+
+                        goBack := r.handleCompetingRequestVote(msg)
+                        if goBack </span><span class="cov0" title="0">{
+                                // TODO: clean up state before changing
+                                //r.Out("COMP REQ VOTe")
+                                r.onLeaderExit()
+                                return r.doFollower
+                        }</span>
+                <span class="cov8" title="1">case msg := &lt;- r.registerClient: // type RegisterClientMsg
+                        go r.handleLeaderRegisterClient(msg)</span>
+                <span class="cov8" title="1">case msg := &lt;- r.clientRequest: // type ClientRequestMsg
+                        go r.handleLeaderClientRequest(msg)</span>
+
+                <span class="cov0" title="0">case msg := &lt;- r.appendEntries: // type AppendEntriesMsg
+                        _, fallback := r.handleAppendEntries(msg)
+                        if (fallback) </span><span class="cov0" title="0">{
+                                //r.Out("FALLBACK HAPP from append entries")
+                                r.onLeaderExit()
+                                return r.doFollower
+                        }</span>
+                <span class="cov0" title="0">case shutdown := &lt;-r.gracefulExit:
+                        // clean up
+                        if shutdown </span><span class="cov0" title="0">{
+                                r.onLeaderExit()
+                                return nil
+                        }</span>
+                <span class="cov8" title="1">default:</span>
+                }
+
+        }
+        <span class="cov0" title="0">return nil</span>
+}
+
+// sendHeartbeats is used by the leader to send out heartbeats to each of
+// the other nodes. It returns true if the leader should fall back to the
+// follower state. (This happens if we discover that we are in an old term.)
+//
+// If another node isn't up-to-date, then the leader should attempt to
+// update them, and, if an index has made it to a quorum of nodes, commit
+// up to that index. Once committed to that index, the replicated state
+// machine should be given the new log entries via processLogEntry.
+func (r *RaftNode) SendHeartbeats(fallbackChan, sentToMajorityChan chan bool) bool <span class="cov8" title="1">{
+        //Debug.Printf("line")
+        otherNodes := r.getOtherNodes() // []RemoteNode
+        helperFallbackChan := make(chan bool)
+        failedToSend := make(chan bool)
+        for _, remoteNode := range otherNodes </span><span class="cov8" title="1">{
+                heartbeat := r.createHeatbeat(&amp;remoteNode)
+                if (heartbeat == nil) </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+                //sendSingleHeartbeat cant have remoteNode passed by ref, will refer to only 1 remote node
+                <span class="cov8" title="1">go r.sendSingleHeartbeat(remoteNode, heartbeat, helperFallbackChan, failedToSend)</span>
+        }
+        <span class="cov8" title="1">successCount := 1 //we are successful for ourself
+        mid := int(math.Floor(float64(r.config.ClusterSize)/2));
+        failCount := 0
+        for </span><span class="cov8" title="1">{
+                select </span>{
+                <span class="cov8" title="1">case goBack := &lt;- helperFallbackChan:
+                        if goBack </span><span class="cov0" title="0">{
+                                if (fallbackChan != nil) </span><span class="cov0" title="0">{
+                                        //r.Out("TOLD TO GO BACK")
+                                        fallbackChan &lt;- true
+                                }</span>
+                                <span class="cov0" title="0">return false</span>
+                        }<span class="cov8" title="1"> else {
+                                successCount++
+                                if successCount &gt; mid </span><span class="cov8" title="1">{
+                                        if (sentToMajorityChan != nil) </span><span class="cov8" title="1">{
+                                                sentToMajorityChan &lt;- true
+                                        }</span>
+                                        <span class="cov8" title="1">return true</span>
+                                }
+                        }
+                <span class="cov0" title="0">case &lt;- failedToSend:
+                        failCount += 1
+                        if (failCount &gt; mid) </span><span class="cov0" title="0">{
+                                return false
+                        }</span>
+                }
+        }
+        <span class="cov0" title="0">return false</span>
+
+}
+
+func (r *RaftNode) sendSingleHeartbeat(remoteNode RemoteNode, heartbeat *AppendEntriesRequest,
+                helperFallbackChan chan bool, failChan chan bool) <span class="cov8" title="1">{
+        //Debug.Printf("line")
+        // TODO: Figure this out, might be very bad in the case where we return from the calling function but this is still running
+        // use leader mutex in certain places
+         // use the remoreNode.Id in this helper
+        reply, err := remoteNode.AppendEntriesRPC(r, heartbeat)
+        // TODO: not sure what to do with error, prob nothing as it is in a heartbeat
+        if err != nil </span><span class="cov0" title="0">{
+                //Debug.Printf("conn error in send single heartbeat")
+                failChan &lt;- false
+                return
+        }</span>
+        //nextInd = min(lenOfLog+1, len(heartbeat.Entries)+prevNextIndex)
+        <span class="cov8" title="1">if reply.Success </span><span class="cov8" title="1">{
+                if (len(heartbeat.Entries) &gt; 0) </span><span class="cov8" title="1">{
+                        r.leaderMutex.Lock()
+                        r.nextIndex[remoteNode.Id] = uint64(math.Max(float64(heartbeat.Entries[len(heartbeat.Entries)-1].Index+1), 
+                                float64(r.nextIndex[remoteNode.Id])))
+
+                        //max(lastEntryInHeartbeat.Index+1, nextIndex)
+
+                        /*uint64(math.Min(float64(r.getLastLogIndex()+1),
+                                float64(uint64(len(heartbeat.Entries))+ r.nextIndex[remoteNode.Id])))*/
+                        r.matchIndex[remoteNode.Id] = r.nextIndex[remoteNode.Id]-1
+                        //r.Out("nextIndex for node %v is %v while matchIndex us %v", remoteNode.Id, r.nextIndex[remoteNode.Id], 
+                        //r.matchIndex[remoteNode.Id])
+                        //if (len(heartbeat.Entries) &gt; 0) {
+                                //r.Out("Entries Appended was len %v with big term %v", len(heartbeat.Entries), 
+                        //                heartbeat.Entries[len(heartbeat.Entries)-1].Index)
+                        //}
+                        r.leaderMutex.Unlock()
+                }</span>
+                <span class="cov8" title="1">helperFallbackChan &lt;- false</span> // WILL THERE EVER BE A CASE THAT WE are here but we should still fallback?
+        }<span class="cov0" title="0"> else {
+                // if we are in this case one of two things happened
+                // (1) the term of the follower is higher than our term
+                // (2) we need to send some older data from our log
+                if reply.Term &gt; r.GetCurrentTerm() </span><span class="cov0" title="0">{ // (1)
+                        r.setCurrentTerm(reply.Term) // downgrade our term
+                        helperFallbackChan &lt;- true
+                }</span><span class="cov0" title="0"> else {
+                        r.leaderMutex.Lock()
+                        r.nextIndex[remoteNode.Id] = uint64(math.Max(float64(r.nextIndex[remoteNode.Id]-1), float64(0)))
+                        r.leaderMutex.Unlock()
+                        helperFallbackChan &lt;- false
+                }</span>
+        }
+}
+
+func (r *RaftNode) onLeaderStart() <span class="cov8" title="1">{
+        r.processLogEntries() //updates last applied
+        r.Leader = r.GetRemoteSelf()
+        otherNodes := r.getOtherNodes() // []RemoteNode
+        index := r.getLastLogIndex() + 1
+        for _, node := range otherNodes </span><span class="cov8" title="1">{
+                r.leaderMutex.Lock()
+                r.nextIndex[node.Id] = index
+                r.matchIndex[node.Id] = 0
+                r.leaderMutex.Unlock()
+        }</span>
+}
+
+// TODO: finish writting and adding to this
+func (r *RaftNode) onLeaderExit() <span class="cov0" title="0">{
+        r.leaderMutex.Lock()
+        r.nextIndex = make(map[string]uint64)
+        r.matchIndex = make(map[string]uint64)
+        r.leaderMutex.Unlock()
+}</span>
+
+// sendHeartbeats is used by the leader to send out heartbeats to each of
+// the other nodes. It returns true if the leader should fall back to the
+// follower state. (This happens if we discover that we are in an old term.)
+//
+// If another node isn't up-to-date, then the leader should attempt to
+// update them, and, if an index has made it to a quorum of nodes, commit
+// up to that index. Once committed to that index, the replicated state
+// machine should be given the new log entries via processLogEntry.
+
+
+func (r *RaftNode) createHeatbeat(remoteNode *RemoteNode) *AppendEntriesRequest <span class="cov8" title="1">{
+        r.leaderMutex.Lock()
+        remoteNodeNextIndex := r.nextIndex[remoteNode.Id]
+        currTerm := r.GetCurrentTerm()
+        leader := r.Leader
+        var prevLogTerm uint64
+        if (r.getLogEntry(remoteNodeNextIndex-1) != nil) </span><span class="cov8" title="1">{
+                prevLogTerm = r.getLogEntry(remoteNodeNextIndex-1).TermId
+        }</span><span class="cov0" title="0"> else {
+                r.leaderMutex.Unlock()
+                return nil
+        }</span>
+        <span class="cov8" title="1">entries := r.getLogEntries(remoteNodeNextIndex)
+        commit := r.commitIndex
+        heartbeat := AppendEntriesRequest{
+                Term: currTerm,
+                Leader: leader, // should be self
+                PrevLogIndex: remoteNodeNextIndex-1,
+                PrevLogTerm: prevLogTerm, // the term of the log entry at prevLogIndex
+                Entries: entries, // []*LogEntry
+                LeaderCommit: commit, // leader's commit commitIndex (index of last commited entry)
+        }
+        r.leaderMutex.Unlock()
+        return &amp;heartbeat</span>
+}
+
+func (r *RaftNode) handleLeaderClientRequest(msg ClientRequestMsg) <span class="cov8" title="1">{
+        Debug.Printf("In handle Client Request")
+        entry := LogEntry{
+                Index: r.getLastLogIndex()+1,
+                TermId: r.GetCurrentTerm(),
+                Type: CommandType_STATE_MACHINE_COMMAND,
+                Command: msg.request.GetStateMachineCmd(), //doesn't matter if type!=STATE_MACHINE_COMMAND
+                Data: msg.request.GetData(),
+                CacheId: createCacheId(msg.request.GetClientId(), msg.request.GetSequenceNum()),
+        }
+        r.appendLogEntry(entry) //may return err
+        r.requestsMutex.Lock()
+        r.requestsByCacheId[entry.CacheId] = msg.reply
+        r.requestsMutex.Unlock()
+}</span>
+
+
+func (r *RaftNode) handleLeaderRegisterClient(msg RegisterClientMsg) <span class="cov8" title="1">{
+        Debug.Printf("In handle Reg Client")
+        //must guarantee commited entry before replying
+        entry := LogEntry{
+                Index: r.getLastLogIndex()+1,
+                TermId: r.GetCurrentTerm(),
+                Type: CommandType_CLIENT_REGISTRATION,
+                Command: 0, //doesn't matter if type not STATE_MACHINE_COMMAND
+                Data: nil,
+                CacheId: "",
+        }
+        //send to all others
+        r.appendLogEntry(entry)
+
+        if (r.SendHeartbeats(nil, nil) == true) </span><span class="cov8" title="1">{
+                response := RegisterClientReply{
+                        Status: ClientStatus_OK,
+                        ClientId: entry.Index,
+                        LeaderHint: r.Leader,
+                }
+                msg.reply &lt;- response
+        }</span><span class="cov0" title="0"> else {
+                response := RegisterClientReply{
+                        Status: ClientStatus_REQ_FAILED,
+                        ClientId: 0,
+                        LeaderHint: r.Leader,
+                }
+                msg.reply &lt;- response
+        }</span>
+}
+
+// includes first index
+func (r *RaftNode) getLogEntries(start uint64) []*LogEntry <span class="cov8" title="1">{
+        //Debug.Printf("line")
+        entries := make([]*LogEntry, 0)
+        // if start &gt;=, this method will return empty entries
+        for i:= start; i &lt;= r.getLastLogIndex(); i++ </span><span class="cov8" title="1">{ // last index was incremented after client request
+                entries = append(entries, r.getLogEntry(i))
+        }</span>
+        <span class="cov8" title="1">return entries</span>
+}
+
+//finds the furthest N such that a majority of matchIndex[i] &gt;= N append
+//log[N].term == CurrentTerm
+func (r *RaftNode) findFurthestValidMatchIndex() uint64 <span class="cov8" title="1">{
+        if r.config.ClusterSize &lt; 2 </span><span class="cov0" title="0">{
+                return uint64(0)
+        }</span>
+        <span class="cov8" title="1">tmp := make([]uint64, len(r.matchIndex))
+        idx := 0
+        r.leaderMutex.Lock()
+        for  _, value := range r.matchIndex </span><span class="cov8" title="1">{
+     tmp[idx] = value
+     idx++
+  }</span>
+        <span class="cov8" title="1">r.leaderMutex.Unlock()
+        bubbleSort(tmp)
+        //highest match index which a majority agree with
+        mid := len(tmp)/2
+        highestMatchIndex := tmp[mid]
+
+
+        for (highestMatchIndex &gt; 0) </span><span class="cov8" title="1">{
+                if r.getLogEntry(highestMatchIndex).GetTermId() == r.GetCurrentTerm() </span><span class="cov8" title="1">{
+                        return highestMatchIndex
+                }</span>
+                <span class="cov0" title="0">highestMatchIndex -= 1</span>
+        }
+        <span class="cov8" title="1">return highestMatchIndex</span>
+}
+
+func bubbleSort(arrayInput []uint64) <span class="cov8" title="1">{
+        swapped := true;
+        for swapped </span><span class="cov8" title="1">{
+                swapped = false
+                for i := 0; i &lt; len(arrayInput) - 1; i++ </span><span class="cov8" title="1">{
+                        if arrayInput[i + 1] &lt; arrayInput[i] </span><span class="cov8" title="1">{
+                                tmp := arrayInput[i]
+                                arrayInput[i] = arrayInput[i + 1]
+                                arrayInput[i + 1] = tmp
+                                swapped = true
+                        }</span>
+                }
+        }
+}
+
+// processLogEntry applies a single log entry to the finite state machine. It is
+// called once a log entry has been replicated to a majority and committed by
+// the leader. Once the entry has been applied, the leader responds to the client
+// with the result, and also caches the response.
+func (r *RaftNode) processLogEntry(entry LogEntry) ClientReply <span class="cov8" title="1">{
+        Out.Printf("Node %v Processing log entry: %v \n", r.Id, entry)
+
+        status := ClientStatus_OK
+        response := ""
+        var err error
+
+        // Apply command on state machine
+        if entry.Type == CommandType_STATE_MACHINE_COMMAND </span><span class="cov8" title="1">{
+                response, err = r.stateMachine.ApplyCommand(entry.Command, entry.Data)
+                if err != nil </span><span class="cov8" title="1">{
+                        status = ClientStatus_REQ_FAILED
+                        response = err.Error()
+                }</span>
+        }
+
+        // Construct reply
+        <span class="cov8" title="1">reply := ClientReply{
+                Status:     status,
+                Response:   response,
+                LeaderHint: r.GetRemoteSelf(),
+        }
+
+        // Add reply to cache
+        if entry.CacheId != "" </span><span class="cov8" title="1">{
+                r.CacheClientReply(entry.CacheId, reply)
+        }</span>
+
+        // Send reply to client
+        <span class="cov8" title="1">r.requestsMutex.Lock()
+        replyChan, exists := r.requestsByCacheId[entry.CacheId]
+        if exists </span><span class="cov8" title="1">{
+                replyChan &lt;- reply
+                delete(r.requestsByCacheId, entry.CacheId)
+        }</span>
+        <span class="cov8" title="1">r.requestsMutex.Unlock()
+
+        return reply</span>
+}
+</pre>
+		
+		<pre class="file" id="file10" style="display: none">package raft
+
+import (
+        "errors"
+        "fmt"
+        "os"
+)
+
+// StableState contains parts of a Raft node's state that needs to be persisted
+// between sessions, and is thus written to disk. This file provides setters and
+// getters to read and update the stable state.
+type StableState struct {
+        // Latest term the server has seen (initialized to 0 on start, increases monotonically)
+        CurrentTerm uint64
+
+        // The candidate Id that received our vote in the current term (or "" if none)
+        VotedFor string
+
+        // A remote node representation of the current node
+        RemoteSelf RemoteNode
+
+        // List of all nodes (including ourselves in the cluster)
+        NodeList []RemoteNode
+
+        // Client reply cache, maps a client request cacheId to the response that was sent to them
+        ClientReplyCache map[string]ClientReply
+}
+
+// LogCache is the list of log entries on the current node. It is backed up to
+// disk; this file provides setters and getters to read and update the log cache.
+type LogCache []LogEntry
+
+// initStableStore initializes the StableState and LogCache. If previous logs
+// exist, it reads from them, otherwise it creates log files and populates
+// StableState and LogCache with default values.
+func (r *RaftNode) initStableStore() (bool, error) <span class="cov8" title="1">{
+        freshNode := false
+
+        // Create log path directory if it doesn't already exist
+        _, err := os.Stat(r.config.LogPath)
+        if err != nil &amp;&amp; os.IsNotExist(err) </span><span class="cov0" title="0">{
+                err = os.Mkdir(r.config.LogPath, 0777)
+
+                if err == nil </span><span class="cov0" title="0">{
+                        Out.Printf("Created log directory: %v\n", r.config.LogPath)
+                }</span>
+
+                <span class="cov0" title="0">if err != nil &amp;&amp; !os.IsExist(err) </span><span class="cov0" title="0">{
+                        Error.Printf("error creating dir %v\n", err)
+                        return freshNode, err
+                }</span>
+        }
+
+        // Initialize logCache and metadata files
+        <span class="cov8" title="1">r.raftLogFd = FileData{
+                fd:       nil,
+                size:     0,
+                filename: fmt.Sprintf("%v/%d_raftlog.dat", r.config.LogPath, r.port),
+        }
+        r.raftMetaFd = FileData{
+                fd:       nil,
+                size:     0,
+                filename: fmt.Sprintf("%v/%d_raftmeta.dat", r.config.LogPath, r.port),
+        }
+
+        raftLogSize, raftLogExists := getFileInfo(r.raftLogFd.filename)
+        r.raftLogFd.size = raftLogSize
+
+        raftMetaSize, raftMetaExists := getFileInfo(r.raftMetaFd.filename)
+        r.raftMetaFd.size = raftMetaSize
+
+        if raftLogExists &amp;&amp; raftMetaExists </span><span class="cov0" title="0">{
+                // If previous state exists, re-populate everything...
+                fmt.Printf("Reloading previous raftlog (%v) and raftmeta (%v)\n",
+                        r.raftLogFd.filename, r.raftMetaFd.filename)
+
+                // Read in previous log and populate index mappings
+                entries, _ := ReadRaftLog(&amp;r.raftLogFd)
+                if err != nil </span><span class="cov0" title="0">{
+                        Error.Printf("Error reading in raft log: %v\n", err)
+                        return freshNode, err
+                }</span>
+                <span class="cov0" title="0">r.logCache = entries
+
+                // Create append-only file descriptor for later writing out of log entries.
+                err = openRaftLogForWrite(&amp;r.raftLogFd)
+                if err != nil </span><span class="cov0" title="0">{
+                        Error.Printf("Error opening raftlog for write: %v\n", err)
+                        return freshNode, err
+                }</span>
+
+                // Read in previous metalog and set cache
+                <span class="cov0" title="0">ss, _ := ReadStableState(&amp;r.raftMetaFd)
+                if err != nil </span><span class="cov0" title="0">{
+                        Error.Printf("Error reading stable state: %v\n", err)
+                        return freshNode, err
+                }</span>
+                <span class="cov0" title="0">r.stableState = *ss</span>
+
+        }<span class="cov8" title="1"> else if (!raftLogExists &amp;&amp; raftMetaExists) || (raftLogExists &amp;&amp; !raftMetaExists) </span><span class="cov0" title="0">{
+                // If only one of the two logs exists, throw error
+                Error.Println("Both raftlog and raftmeta files must exist to proceed!")
+                err = errors.New("Both raftlog and raftmeta files must exist to start this node")
+                return freshNode, err
+
+        }</span><span class="cov8" title="1"> else {
+                // If neither of the two logs exist, create new files
+                freshNode = true
+                Out.Printf("Creating new raftlog and raftmeta files")
+
+                err := CreateRaftLog(&amp;r.raftLogFd)
+                if err != nil </span><span class="cov0" title="0">{
+                        Error.Printf("Error creating new raftlog: %v\n", err)
+                        return freshNode, err
+                }</span>
+
+                <span class="cov8" title="1">err = CreateStableState(&amp;r.raftMetaFd)
+                if err != nil </span><span class="cov0" title="0">{
+                        Error.Printf("Error creating new stable state: %v\n", err)
+                        return freshNode, err
+                }</span>
+
+                // Init other nodes to zero, this will become populated
+                <span class="cov8" title="1">r.stableState.NodeList = make([]RemoteNode, 0)
+
+                // Init client reply cache
+                r.stableState.ClientReplyCache = make(map[string]ClientReply)
+
+                // No previous log cache exists, so a fresh one must be created.
+                r.logCache = make(LogCache, 0)
+
+                // If the log is empty we need to bootstrap it by adding the first committed entry.
+                initEntry := LogEntry{
+                        Index:  0,
+                        TermId: r.GetCurrentTerm(),
+                        Type:   CommandType_INIT,
+                        Data:   []byte{0},
+                }
+                r.appendLogEntry(initEntry)
+                r.setCurrentTerm(0)</span>
+        }
+
+        <span class="cov8" title="1">return freshNode, nil</span>
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Setters and Getters for StableState                                        //
+////////////////////////////////////////////////////////////////////////////////
+
+// setCurrentTerm sets the current node's term and writes log to disk
+func (r *RaftNode) setCurrentTerm(newTerm uint64) <span class="cov8" title="1">{
+        r.ssMutex.Lock()
+        defer r.ssMutex.Unlock()
+
+        if newTerm != r.stableState.CurrentTerm </span><span class="cov8" title="1">{
+                Out.Printf("(%v) Setting current term from %v -&gt; %v", r.Id, r.stableState.CurrentTerm, newTerm)
+        }</span>
+        <span class="cov8" title="1">r.stableState.CurrentTerm = newTerm
+
+        err := WriteStableState(&amp;r.raftMetaFd, r.stableState)
+        if err != nil </span><span class="cov0" title="0">{
+                Error.Printf("Unable to flush new term to disk: %v\n", err)
+                panic(err)</span>
+        }
+}
+
+// GetCurrentTerm returns the current node's term
+func (r *RaftNode) GetCurrentTerm() uint64 <span class="cov8" title="1">{
+        return r.stableState.CurrentTerm
+}</span>
+
+// setVotedFor sets the candidateId for which the current node voted for, and writes log to disk
+func (r *RaftNode) setVotedFor(candidateId string) <span class="cov8" title="1">{
+        r.ssMutex.Lock()
+        defer r.ssMutex.Unlock()
+
+        r.stableState.VotedFor = candidateId
+
+        err := WriteStableState(&amp;r.raftMetaFd, r.stableState)
+        if err != nil </span><span class="cov0" title="0">{
+                Error.Printf("Unable to flush new votedFor to disk: %v\n", err)
+                panic(err)</span>
+        }
+}
+
+// GetVotedFor returns the Id of the candidate that the current node voted for
+func (r *RaftNode) GetVotedFor() string <span class="cov8" title="1">{
+        return r.stableState.VotedFor
+}</span>
+
+// setRemoteSelf sets the current node's RemoteSelf and writes log to disk
+func (r *RaftNode) setRemoteSelf(remoteSelf *RemoteNode) <span class="cov8" title="1">{
+        r.ssMutex.Lock()
+        defer r.ssMutex.Unlock()
+
+        r.stableState.RemoteSelf = *remoteSelf
+
+        err := WriteStableState(&amp;r.raftMetaFd, r.stableState)
+        if err != nil </span><span class="cov0" title="0">{
+                Error.Printf("Unable to flush new RemoteSelf to disk: %v\n", err)
+                panic(err)</span>
+        }
+}
+
+// GetRemoteSelf returns the current node's representation of itself as a remote node
+func (r *RaftNode) GetRemoteSelf() *RemoteNode <span class="cov8" title="1">{
+        return &amp;r.stableState.RemoteSelf
+}</span>
+
+// SetNodeList sets the current node's conception of all nodes in the cluster
+func (r *RaftNode) SetNodeList(nodePointers []*RemoteNode) <span class="cov8" title="1">{
+        // Get nodes from node pointers
+        nodes := make([]RemoteNode, len(nodePointers))
+        for i, np := range nodePointers </span><span class="cov8" title="1">{
+                nodes[i] = *np
+        }</span>
+
+        <span class="cov8" title="1">r.ssMutex.Lock()
+        defer r.ssMutex.Unlock()
+
+        r.stableState.NodeList = nodes
+
+        err := WriteStableState(&amp;r.raftMetaFd, r.stableState)
+        if err != nil </span><span class="cov0" title="0">{
+                Error.Printf("Unable to flush new other nodes to disk: %v\n", err)
+                panic(err)</span>
+        }
+}
+
+// AppendToNodeList adds nodes to the current node's conception of all nodes in the cluster
+func (r *RaftNode) AppendToNodeList(other RemoteNode) <span class="cov8" title="1">{
+        r.ssMutex.Lock()
+        defer r.ssMutex.Unlock()
+
+        r.stableState.NodeList = append(r.stableState.NodeList, other)
+
+        err := WriteStableState(&amp;r.raftMetaFd, r.stableState)
+        if err != nil </span><span class="cov0" title="0">{
+                Error.Printf("Unable to flush new other nodes to disk: %v\n", err)
+                panic(err)</span>
+        }
+}
+
+// GetNodeList returns the list of nodes in the Raft cluster as known by the current node
+func (r *RaftNode) GetNodeList() []RemoteNode <span class="cov8" title="1">{
+        return r.stableState.NodeList
+}</span>
+
+// CacheClientReply caches the given client response with the provided cache ID.
+func (r *RaftNode) CacheClientReply(cacheId string, reply ClientReply) error <span class="cov8" title="1">{
+        r.ssMutex.Lock()
+        defer r.ssMutex.Unlock()
+
+        // Check if same cacheId already exists in cache
+        _, ok := r.stableState.ClientReplyCache[cacheId]
+        if ok </span><span class="cov0" title="0">{
+                return errors.New("request with the same clientId and seqNum already exists")
+        }</span>
+
+        <span class="cov8" title="1">r.stableState.ClientReplyCache[cacheId] = reply
+
+        err := WriteStableState(&amp;r.raftMetaFd, r.stableState)
+        if err != nil </span><span class="cov0" title="0">{
+                Error.Printf("Unable to flush new client request to disk: %v\n", err)
+                panic(err)</span>
+        }
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+// GetCachedReply checks if the given client request has a cached response.
+// It returns the cached response (or nil) and a boolean indicating whether or not
+// a cached response existed.
+func (r *RaftNode) GetCachedReply(clientReq ClientRequest) (*ClientReply, bool) <span class="cov8" title="1">{
+        cacheId := createCacheId(clientReq.ClientId, clientReq.SequenceNum)
+
+        val, ok := r.stableState.ClientReplyCache[cacheId]
+
+        if ok </span><span class="cov8" title="1">{
+                return &amp;val, ok
+        }</span><span class="cov8" title="1"> else {
+                return nil, ok
+        }</span>
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Setters and Getters for LogCache                                           //
+////////////////////////////////////////////////////////////////////////////////
+
+// appendLogEntry adds a log entry to the current node's cache, and writes it to disk
+func (r *RaftNode) appendLogEntry(entry LogEntry) error <span class="cov8" title="1">{
+        // Write entry to disk
+        err := AppendLogEntry(&amp;r.raftLogFd, &amp;entry)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        // Update entry in cache
+        <span class="cov8" title="1">r.logCache = append(r.logCache, entry)
+        return nil</span>
+}
+
+// truncateLog removes all log entries at index and after it (an inclusive truncation!)
+func (r *RaftNode) truncateLog(index uint64) error <span class="cov8" title="1">{
+        // Truncate log on disk
+        err := TruncateLog(&amp;r.raftLogFd, index)
+        if err != nil </span><span class="cov8" title="1">{
+                return err
+        }</span>
+
+        // Remove entries from cache
+        <span class="cov0" title="0">r.logCache = r.logCache[:index]
+        return nil</span>
+}
+
+// getLogEntry returns the log entry at the given index
+func (r *RaftNode) getLogEntry(index uint64) *LogEntry <span class="cov8" title="1">{
+        if index &lt; uint64(len(r.logCache)) </span><span class="cov8" title="1">{
+                return &amp;r.logCache[index]
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+// getLastLogIndex returns the index of the last log entry on the current node
+func (r *RaftNode) getLastLogIndex() uint64 <span class="cov8" title="1">{
+        return uint64(len(r.logCache) - 1)
+}</span>
+</pre>
+		
+		<pre class="file" id="file11" style="display: none">// Code generated by protoc-gen-go. DO NOT EDIT.
+// source: raft_rpc.proto
+
+/*
+Package raft is a generated protocol buffer package.
+
+It is generated from these files:
+        raft_rpc.proto
+
+It has these top-level messages:
+        Ok
+        RemoteNode
+        StartNodeRequest
+        LogEntry
+        AppendEntriesRequest
+        AppendEntriesReply
+        RequestVoteRequest
+        RequestVoteReply
+        RegisterClientRequest
+        RegisterClientReply
+        ClientRequest
+        ClientReply
+*/
+package raft
+
+import proto "github.com/golang/protobuf/proto"
+import fmt "fmt"
+import math "math"
+
+import (
+        context "golang.org/x/net/context"
+        grpc "google.golang.org/grpc"
+)
+
+// Reference imports to suppress errors if they are not otherwise used.
+var _ = proto.Marshal
+var _ = fmt.Errorf
+var _ = math.Inf
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+
+// A log entry in Raft can be any of any of these four types.
+type CommandType int32
+
+const (
+        CommandType_CLIENT_REGISTRATION   CommandType = 0
+        CommandType_INIT                  CommandType = 1
+        CommandType_NOOP                  CommandType = 2
+        CommandType_STATE_MACHINE_COMMAND CommandType = 3
+)
+
+var CommandType_name = map[int32]string{
+        0: "CLIENT_REGISTRATION",
+        1: "INIT",
+        2: "NOOP",
+        3: "STATE_MACHINE_COMMAND",
+}
+var CommandType_value = map[string]int32{
+        "CLIENT_REGISTRATION":   0,
+        "INIT":                  1,
+        "NOOP":                  2,
+        "STATE_MACHINE_COMMAND": 3,
+}
+
+func (x CommandType) String() string <span class="cov8" title="1">{
+        return proto.EnumName(CommandType_name, int32(x))
+}</span>
+func (CommandType) EnumDescriptor() ([]byte, []int) <span class="cov0" title="0">{ return fileDescriptor0, []int{0} }</span>
+
+// The possible responses to a client request
+type ClientStatus int32
+
+const (
+        ClientStatus_OK                   ClientStatus = 0
+        ClientStatus_NOT_LEADER           ClientStatus = 1
+        ClientStatus_ELECTION_IN_PROGRESS ClientStatus = 2
+        ClientStatus_CLUSTER_NOT_STARTED  ClientStatus = 3
+        ClientStatus_REQ_FAILED           ClientStatus = 4
+)
+
+var ClientStatus_name = map[int32]string{
+        0: "OK",
+        1: "NOT_LEADER",
+        2: "ELECTION_IN_PROGRESS",
+        3: "CLUSTER_NOT_STARTED",
+        4: "REQ_FAILED",
+}
+var ClientStatus_value = map[string]int32{
+        "OK":                   0,
+        "NOT_LEADER":           1,
+        "ELECTION_IN_PROGRESS": 2,
+        "CLUSTER_NOT_STARTED":  3,
+        "REQ_FAILED":           4,
+}
+
+func (x ClientStatus) String() string <span class="cov0" title="0">{
+        return proto.EnumName(ClientStatus_name, int32(x))
+}</span>
+func (ClientStatus) EnumDescriptor() ([]byte, []int) <span class="cov0" title="0">{ return fileDescriptor0, []int{1} }</span>
+
+// Used to represent result of an RPC call that can either be successful or
+// unsuccessful.
+type Ok struct {
+        Ok     bool   `protobuf:"varint,1,opt,name=ok" json:"ok,omitempty"`
+        Reason string `protobuf:"bytes,2,opt,name=reason" json:"reason,omitempty"`
+}
+
+func (m *Ok) Reset()                    <span class="cov8" title="1">{ *m = Ok{} }</span>
+func (m *Ok) String() string            <span class="cov0" title="0">{ return proto.CompactTextString(m) }</span>
+func (*Ok) ProtoMessage()               <span class="cov0" title="0">{}</span>
+func (*Ok) Descriptor() ([]byte, []int) <span class="cov0" title="0">{ return fileDescriptor0, []int{0} }</span>
+
+func (m *Ok) GetOk() bool <span class="cov8" title="1">{
+        if m != nil </span><span class="cov8" title="1">{
+                return m.Ok
+        }</span>
+        <span class="cov0" title="0">return false</span>
+}
+
+func (m *Ok) GetReason() string <span class="cov0" title="0">{
+        if m != nil </span><span class="cov0" title="0">{
+                return m.Reason
+        }</span>
+        <span class="cov0" title="0">return ""</span>
+}
+
+// Represents a node in the Raft cluster
+type RemoteNode struct {
+        Addr string `protobuf:"bytes,1,opt,name=addr" json:"addr,omitempty"`
+        Id   string `protobuf:"bytes,2,opt,name=id" json:"id,omitempty"`
+}
+
+func (m *RemoteNode) Reset()                    <span class="cov8" title="1">{ *m = RemoteNode{} }</span>
+func (m *RemoteNode) String() string            <span class="cov8" title="1">{ return proto.CompactTextString(m) }</span>
+func (*RemoteNode) ProtoMessage()               <span class="cov0" title="0">{}</span>
+func (*RemoteNode) Descriptor() ([]byte, []int) <span class="cov0" title="0">{ return fileDescriptor0, []int{1} }</span>
+
+func (m *RemoteNode) GetAddr() string <span class="cov0" title="0">{
+        if m != nil </span><span class="cov0" title="0">{
+                return m.Addr
+        }</span>
+        <span class="cov0" title="0">return ""</span>
+}
+
+func (m *RemoteNode) GetId() string <span class="cov0" title="0">{
+        if m != nil </span><span class="cov0" title="0">{
+                return m.Id
+        }</span>
+        <span class="cov0" title="0">return ""</span>
+}
+
+type StartNodeRequest struct {
+        // The node sending the request to start another node in the cluster
+        FromNode *RemoteNode `protobuf:"bytes,1,opt,name=fromNode" json:"fromNode,omitempty"`
+        // The list of nodes in the cluster that the new node should start up with
+        NodeList []*RemoteNode `protobuf:"bytes,2,rep,name=nodeList" json:"nodeList,omitempty"`
+}
+
+func (m *StartNodeRequest) Reset()                    <span class="cov8" title="1">{ *m = StartNodeRequest{} }</span>
+func (m *StartNodeRequest) String() string            <span class="cov0" title="0">{ return proto.CompactTextString(m) }</span>
+func (*StartNodeRequest) ProtoMessage()               <span class="cov0" title="0">{}</span>
+func (*StartNodeRequest) Descriptor() ([]byte, []int) <span class="cov0" title="0">{ return fileDescriptor0, []int{2} }</span>
+
+func (m *StartNodeRequest) GetFromNode() *RemoteNode <span class="cov0" title="0">{
+        if m != nil </span><span class="cov0" title="0">{
+                return m.FromNode
+        }</span>
+        <span class="cov0" title="0">return nil</span>
+}
+
+func (m *StartNodeRequest) GetNodeList() []*RemoteNode <span class="cov0" title="0">{
+        if m != nil </span><span class="cov0" title="0">{
+                return m.NodeList
+        }</span>
+        <span class="cov0" title="0">return nil</span>
+}
+
+type LogEntry struct {
+        // Index of log entry (first index = 1)
+        Index uint64 `protobuf:"varint,1,opt,name=index" json:"index,omitempty"`
+        // The term that this entry was in when added
+        TermId uint64 `protobuf:"varint,2,opt,name=termId" json:"termId,omitempty"`
+        // Type of command associated with this entry
+        Type CommandType `protobuf:"varint,3,opt,name=type,enum=raft.CommandType" json:"type,omitempty"`
+        // Command associated with this log entry in the user's finite-state-machine.
+        // Note that we only care about this value when type = STATE_MACHINE_COMMAND
+        Command uint64 `protobuf:"varint,4,opt,name=command" json:"command,omitempty"`
+        // Data associated with this log entry in the user's finite-state-machine.
+        Data []byte `protobuf:"bytes,5,opt,name=data,proto3" json:"data,omitempty"`
+        // After processing this log entry, what ID to use when caching the
+        // response. Use an empty string to not cache at all
+        CacheId string `protobuf:"bytes,6,opt,name=cacheId" json:"cacheId,omitempty"`
+}
+
+func (m *LogEntry) Reset()                    <span class="cov0" title="0">{ *m = LogEntry{} }</span>
+func (m *LogEntry) String() string            <span class="cov0" title="0">{ return proto.CompactTextString(m) }</span>
+func (*LogEntry) ProtoMessage()               <span class="cov0" title="0">{}</span>
+func (*LogEntry) Descriptor() ([]byte, []int) <span class="cov0" title="0">{ return fileDescriptor0, []int{3} }</span>
+
+func (m *LogEntry) GetIndex() uint64 <span class="cov8" title="1">{
+        if m != nil </span><span class="cov8" title="1">{
+                return m.Index
+        }</span>
+        <span class="cov0" title="0">return 0</span>
+}
+
+func (m *LogEntry) GetTermId() uint64 <span class="cov8" title="1">{
+        if m != nil </span><span class="cov8" title="1">{
+                return m.TermId
+        }</span>
+        <span class="cov8" title="1">return 0</span>
+}
+
+func (m *LogEntry) GetType() CommandType <span class="cov0" title="0">{
+        if m != nil </span><span class="cov0" title="0">{
+                return m.Type
+        }</span>
+        <span class="cov0" title="0">return CommandType_CLIENT_REGISTRATION</span>
+}
+
+func (m *LogEntry) GetCommand() uint64 <span class="cov0" title="0">{
+        if m != nil </span><span class="cov0" title="0">{
+                return m.Command
+        }</span>
+        <span class="cov0" title="0">return 0</span>
+}
+
+func (m *LogEntry) GetData() []byte <span class="cov0" title="0">{
+        if m != nil </span><span class="cov0" title="0">{
+                return m.Data
+        }</span>
+        <span class="cov0" title="0">return nil</span>
+}
+
+func (m *LogEntry) GetCacheId() string <span class="cov0" title="0">{
+        if m != nil </span><span class="cov0" title="0">{
+                return m.CacheId
+        }</span>
+        <span class="cov0" title="0">return ""</span>
+}
+
+type AppendEntriesRequest struct {
+        // The leader's term
+        Term uint64 `protobuf:"varint,1,opt,name=term" json:"term,omitempty"`
+        // Address of the leader sending this request
+        Leader *RemoteNode `protobuf:"bytes,2,opt,name=leader" json:"leader,omitempty"`
+        // The index of the log entry immediately preceding the new ones
+        PrevLogIndex uint64 `protobuf:"varint,3,opt,name=prevLogIndex" json:"prevLogIndex,omitempty"`
+        // The term of the log entry at prevLogIndex
+        PrevLogTerm uint64 `protobuf:"varint,4,opt,name=prevLogTerm" json:"prevLogTerm,omitempty"`
+        // The log entries the follower needs to store. Empty for heartbeat messages.
+        Entries []*LogEntry `protobuf:"bytes,5,rep,name=entries" json:"entries,omitempty"`
+        // The leader's commitIndex
+        LeaderCommit uint64 `protobuf:"varint,6,opt,name=leaderCommit" json:"leaderCommit,omitempty"`
+}
+
+func (m *AppendEntriesRequest) Reset()                    <span class="cov8" title="1">{ *m = AppendEntriesRequest{} }</span>
+func (m *AppendEntriesRequest) String() string            <span class="cov0" title="0">{ return proto.CompactTextString(m) }</span>
+func (*AppendEntriesRequest) ProtoMessage()               <span class="cov0" title="0">{}</span>
+func (*AppendEntriesRequest) Descriptor() ([]byte, []int) <span class="cov0" title="0">{ return fileDescriptor0, []int{4} }</span>
+
+func (m *AppendEntriesRequest) GetTerm() uint64 <span class="cov8" title="1">{
+        if m != nil </span><span class="cov8" title="1">{
+                return m.Term
+        }</span>
+        <span class="cov0" title="0">return 0</span>
+}
+
+func (m *AppendEntriesRequest) GetLeader() *RemoteNode <span class="cov8" title="1">{
+        if m != nil </span><span class="cov8" title="1">{
+                return m.Leader
+        }</span>
+        <span class="cov0" title="0">return nil</span>
+}
+
+func (m *AppendEntriesRequest) GetPrevLogIndex() uint64 <span class="cov8" title="1">{
+        if m != nil </span><span class="cov8" title="1">{
+                return m.PrevLogIndex
+        }</span>
+        <span class="cov0" title="0">return 0</span>
+}
+
+func (m *AppendEntriesRequest) GetPrevLogTerm() uint64 <span class="cov8" title="1">{
+        if m != nil </span><span class="cov8" title="1">{
+                return m.PrevLogTerm
+        }</span>
+        <span class="cov0" title="0">return 0</span>
+}
+
+func (m *AppendEntriesRequest) GetEntries() []*LogEntry <span class="cov8" title="1">{
+        if m != nil </span><span class="cov8" title="1">{
+                return m.Entries
+        }</span>
+        <span class="cov0" title="0">return nil</span>
+}
+
+func (m *AppendEntriesRequest) GetLeaderCommit() uint64 <span class="cov8" title="1">{
+        if m != nil </span><span class="cov8" title="1">{
+                return m.LeaderCommit
+        }</span>
+        <span class="cov0" title="0">return 0</span>
+}
+
+type AppendEntriesReply struct {
+        // The current term, for leader to update itself.
+        Term uint64 `protobuf:"varint,1,opt,name=term" json:"term,omitempty"`
+        // True if follower contained entry matching prevLogIndex and prevLogTerm.
+        Success bool `protobuf:"varint,2,opt,name=success" json:"success,omitempty"`
+}
+
+func (m *AppendEntriesReply) Reset()                    <span class="cov8" title="1">{ *m = AppendEntriesReply{} }</span>
+func (m *AppendEntriesReply) String() string            <span class="cov0" title="0">{ return proto.CompactTextString(m) }</span>
+func (*AppendEntriesReply) ProtoMessage()               <span class="cov0" title="0">{}</span>
+func (*AppendEntriesReply) Descriptor() ([]byte, []int) <span class="cov0" title="0">{ return fileDescriptor0, []int{5} }</span>
+
+func (m *AppendEntriesReply) GetTerm() uint64 <span class="cov0" title="0">{
+        if m != nil </span><span class="cov0" title="0">{
+                return m.Term
+        }</span>
+        <span class="cov0" title="0">return 0</span>
+}
+
+func (m *AppendEntriesReply) GetSuccess() bool <span class="cov0" title="0">{
+        if m != nil </span><span class="cov0" title="0">{
+                return m.Success
+        }</span>
+        <span class="cov0" title="0">return false</span>
+}
+
+type RequestVoteRequest struct {
+        // The candidate's current term Id
+        Term uint64 `protobuf:"varint,1,opt,name=term" json:"term,omitempty"`
+        // The cadidate Id currently requesting a node to vote for it.
+        Candidate *RemoteNode `protobuf:"bytes,2,opt,name=candidate" json:"candidate,omitempty"`
+        // The index of the candidate's last log entry
+        LastLogIndex uint64 `protobuf:"varint,3,opt,name=lastLogIndex" json:"lastLogIndex,omitempty"`
+        // The term of the candidate's last log entry
+        LastLogTerm uint64 `protobuf:"varint,4,opt,name=lastLogTerm" json:"lastLogTerm,omitempty"`
+}
+
+func (m *RequestVoteRequest) Reset()                    <span class="cov8" title="1">{ *m = RequestVoteRequest{} }</span>
+func (m *RequestVoteRequest) String() string            <span class="cov0" title="0">{ return proto.CompactTextString(m) }</span>
+func (*RequestVoteRequest) ProtoMessage()               <span class="cov0" title="0">{}</span>
+func (*RequestVoteRequest) Descriptor() ([]byte, []int) <span class="cov0" title="0">{ return fileDescriptor0, []int{6} }</span>
+
+func (m *RequestVoteRequest) GetTerm() uint64 <span class="cov8" title="1">{
+        if m != nil </span><span class="cov8" title="1">{
+                return m.Term
+        }</span>
+        <span class="cov0" title="0">return 0</span>
+}
+
+func (m *RequestVoteRequest) GetCandidate() *RemoteNode <span class="cov0" title="0">{
+        if m != nil </span><span class="cov0" title="0">{
+                return m.Candidate
+        }</span>
+        <span class="cov0" title="0">return nil</span>
+}
+
+func (m *RequestVoteRequest) GetLastLogIndex() uint64 <span class="cov0" title="0">{
+        if m != nil </span><span class="cov0" title="0">{
+                return m.LastLogIndex
+        }</span>
+        <span class="cov0" title="0">return 0</span>
+}
+
+func (m *RequestVoteRequest) GetLastLogTerm() uint64 <span class="cov0" title="0">{
+        if m != nil </span><span class="cov0" title="0">{
+                return m.LastLogTerm
+        }</span>
+        <span class="cov0" title="0">return 0</span>
+}
+
+type RequestVoteReply struct {
+        // The current term, for candidate to update itsel
+        Term uint64 `protobuf:"varint,1,opt,name=term" json:"term,omitempty"`
+        // True means candidate received vote
+        VoteGranted bool `protobuf:"varint,2,opt,name=voteGranted" json:"voteGranted,omitempty"`
+}
+
+func (m *RequestVoteReply) Reset()                    <span class="cov8" title="1">{ *m = RequestVoteReply{} }</span>
+func (m *RequestVoteReply) String() string            <span class="cov0" title="0">{ return proto.CompactTextString(m) }</span>
+func (*RequestVoteReply) ProtoMessage()               <span class="cov0" title="0">{}</span>
+func (*RequestVoteReply) Descriptor() ([]byte, []int) <span class="cov0" title="0">{ return fileDescriptor0, []int{7} }</span>
+
+func (m *RequestVoteReply) GetTerm() uint64 <span class="cov8" title="1">{
+        if m != nil </span><span class="cov8" title="1">{
+                return m.Term
+        }</span>
+        <span class="cov0" title="0">return 0</span>
+}
+
+func (m *RequestVoteReply) GetVoteGranted() bool <span class="cov8" title="1">{
+        if m != nil </span><span class="cov8" title="1">{
+                return m.VoteGranted
+        }</span>
+        <span class="cov0" title="0">return false</span>
+}
+
+// Empty message represents that a client needs to send no data over to
+// register itself.
+type RegisterClientRequest struct {
+}
+
+func (m *RegisterClientRequest) Reset()                    <span class="cov8" title="1">{ *m = RegisterClientRequest{} }</span>
+func (m *RegisterClientRequest) String() string            <span class="cov0" title="0">{ return proto.CompactTextString(m) }</span>
+func (*RegisterClientRequest) ProtoMessage()               <span class="cov0" title="0">{}</span>
+func (*RegisterClientRequest) Descriptor() ([]byte, []int) <span class="cov0" title="0">{ return fileDescriptor0, []int{8} }</span>
+
+type RegisterClientReply struct {
+        // OK if state machine registered client
+        Status ClientStatus `protobuf:"varint,1,opt,name=status,enum=raft.ClientStatus" json:"status,omitempty"`
+        // Unique ID for client session
+        ClientId uint64 `protobuf:"varint,2,opt,name=clientId" json:"clientId,omitempty"`
+        // In cases where the client contacted a non-leader, the node should
+        // reply with the correct current leader.
+        LeaderHint *RemoteNode `protobuf:"bytes,3,opt,name=leaderHint" json:"leaderHint,omitempty"`
+}
+
+func (m *RegisterClientReply) Reset()                    <span class="cov8" title="1">{ *m = RegisterClientReply{} }</span>
+func (m *RegisterClientReply) String() string            <span class="cov0" title="0">{ return proto.CompactTextString(m) }</span>
+func (*RegisterClientReply) ProtoMessage()               <span class="cov0" title="0">{}</span>
+func (*RegisterClientReply) Descriptor() ([]byte, []int) <span class="cov0" title="0">{ return fileDescriptor0, []int{9} }</span>
+
+func (m *RegisterClientReply) GetStatus() ClientStatus <span class="cov0" title="0">{
+        if m != nil </span><span class="cov0" title="0">{
+                return m.Status
+        }</span>
+        <span class="cov0" title="0">return ClientStatus_OK</span>
+}
+
+func (m *RegisterClientReply) GetClientId() uint64 <span class="cov0" title="0">{
+        if m != nil </span><span class="cov0" title="0">{
+                return m.ClientId
+        }</span>
+        <span class="cov0" title="0">return 0</span>
+}
+
+func (m *RegisterClientReply) GetLeaderHint() *RemoteNode <span class="cov0" title="0">{
+        if m != nil </span><span class="cov0" title="0">{
+                return m.LeaderHint
+        }</span>
+        <span class="cov0" title="0">return nil</span>
+}
+
+type ClientRequest struct {
+        // The unique client ID associated with this client session (received
+        // via a previous RegisterClient call).
+        ClientId uint64 `protobuf:"varint,1,opt,name=clientId" json:"clientId,omitempty"`
+        // A sequence number is associated to request to avoid duplicates
+        SequenceNum uint64 `protobuf:"varint,2,opt,name=sequenceNum" json:"sequenceNum,omitempty"`
+        // Command to be executed on the state machine; it may affect state
+        StateMachineCmd uint64 `protobuf:"varint,4,opt,name=stateMachineCmd" json:"stateMachineCmd,omitempty"`
+        // Data to accompany the command to the state machine; it may affect state
+        Data []byte `protobuf:"bytes,5,opt,name=data,proto3" json:"data,omitempty"`
+}
+
+func (m *ClientRequest) Reset()                    <span class="cov8" title="1">{ *m = ClientRequest{} }</span>
+func (m *ClientRequest) String() string            <span class="cov0" title="0">{ return proto.CompactTextString(m) }</span>
+func (*ClientRequest) ProtoMessage()               <span class="cov0" title="0">{}</span>
+func (*ClientRequest) Descriptor() ([]byte, []int) <span class="cov0" title="0">{ return fileDescriptor0, []int{10} }</span>
+
+func (m *ClientRequest) GetClientId() uint64 <span class="cov8" title="1">{
+        if m != nil </span><span class="cov8" title="1">{
+                return m.ClientId
+        }</span>
+        <span class="cov0" title="0">return 0</span>
+}
+
+func (m *ClientRequest) GetSequenceNum() uint64 <span class="cov8" title="1">{
+        if m != nil </span><span class="cov8" title="1">{
+                return m.SequenceNum
+        }</span>
+        <span class="cov0" title="0">return 0</span>
+}
+
+func (m *ClientRequest) GetStateMachineCmd() uint64 <span class="cov8" title="1">{
+        if m != nil </span><span class="cov8" title="1">{
+                return m.StateMachineCmd
+        }</span>
+        <span class="cov0" title="0">return 0</span>
+}
+
+func (m *ClientRequest) GetData() []byte <span class="cov8" title="1">{
+        if m != nil </span><span class="cov8" title="1">{
+                return m.Data
+        }</span>
+        <span class="cov0" title="0">return nil</span>
+}
+
+type ClientReply struct {
+        // OK if state machine successfully applied command
+        Status ClientStatus `protobuf:"varint,1,opt,name=status,enum=raft.ClientStatus" json:"status,omitempty"`
+        // State machine output, if successful
+        Response string `protobuf:"bytes,2,opt,name=response" json:"response,omitempty"`
+        // In cases where the client contacted a non-leader, the node should
+        // reply with the correct current leader.
+        LeaderHint *RemoteNode `protobuf:"bytes,3,opt,name=leaderHint" json:"leaderHint,omitempty"`
+}
+
+func (m *ClientReply) Reset()                    <span class="cov8" title="1">{ *m = ClientReply{} }</span>
+func (m *ClientReply) String() string            <span class="cov0" title="0">{ return proto.CompactTextString(m) }</span>
+func (*ClientReply) ProtoMessage()               <span class="cov0" title="0">{}</span>
+func (*ClientReply) Descriptor() ([]byte, []int) <span class="cov0" title="0">{ return fileDescriptor0, []int{11} }</span>
+
+func (m *ClientReply) GetStatus() ClientStatus <span class="cov0" title="0">{
+        if m != nil </span><span class="cov0" title="0">{
+                return m.Status
+        }</span>
+        <span class="cov0" title="0">return ClientStatus_OK</span>
+}
+
+func (m *ClientReply) GetResponse() string <span class="cov0" title="0">{
+        if m != nil </span><span class="cov0" title="0">{
+                return m.Response
+        }</span>
+        <span class="cov0" title="0">return ""</span>
+}
+
+func (m *ClientReply) GetLeaderHint() *RemoteNode <span class="cov0" title="0">{
+        if m != nil </span><span class="cov0" title="0">{
+                return m.LeaderHint
+        }</span>
+        <span class="cov0" title="0">return nil</span>
+}
+
+func init() <span class="cov8" title="1">{
+        proto.RegisterType((*Ok)(nil), "raft.Ok")
+        proto.RegisterType((*RemoteNode)(nil), "raft.RemoteNode")
+        proto.RegisterType((*StartNodeRequest)(nil), "raft.StartNodeRequest")
+        proto.RegisterType((*LogEntry)(nil), "raft.LogEntry")
+        proto.RegisterType((*AppendEntriesRequest)(nil), "raft.AppendEntriesRequest")
+        proto.RegisterType((*AppendEntriesReply)(nil), "raft.AppendEntriesReply")
+        proto.RegisterType((*RequestVoteRequest)(nil), "raft.RequestVoteRequest")
+        proto.RegisterType((*RequestVoteReply)(nil), "raft.RequestVoteReply")
+        proto.RegisterType((*RegisterClientRequest)(nil), "raft.RegisterClientRequest")
+        proto.RegisterType((*RegisterClientReply)(nil), "raft.RegisterClientReply")
+        proto.RegisterType((*ClientRequest)(nil), "raft.ClientRequest")
+        proto.RegisterType((*ClientReply)(nil), "raft.ClientReply")
+        proto.RegisterEnum("raft.CommandType", CommandType_name, CommandType_value)
+        proto.RegisterEnum("raft.ClientStatus", ClientStatus_name, ClientStatus_value)
+}</span>
+
+// Reference imports to suppress errors if they are not otherwise used.
+var _ context.Context
+var _ grpc.ClientConn
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the grpc package it is being compiled against.
+const _ = grpc.SupportPackageIsVersion4
+
+// Client API for RaftRPC service
+
+type RaftRPCClient interface {
+        // Used when a node in the cluster is first starting up so it can notify a
+        // leader what their listening address is.
+        JoinCaller(ctx context.Context, in *RemoteNode, opts ...grpc.CallOption) (*Ok, error)
+        // Once the first node in the cluster has all of the addresses for all other
+        // nodes in the cluster it can then tell them to transition into Follower
+        // state and start the Raft protocol.
+        StartNodeCaller(ctx context.Context, in *StartNodeRequest, opts ...grpc.CallOption) (*Ok, error)
+        // Invoked by leader to replicate log entries; also used as a heartbeat
+        // between leaders and followers.
+        AppendEntriesCaller(ctx context.Context, in *AppendEntriesRequest, opts ...grpc.CallOption) (*AppendEntriesReply, error)
+        // Invoked by candidate nodes to request votes from other nodes.
+        RequestVoteCaller(ctx context.Context, in *RequestVoteRequest, opts ...grpc.CallOption) (*RequestVoteReply, error)
+        // Called by a client when it first starts up to register itself with the
+        // Raft cluster and get a unique client id.
+        RegisterClientCaller(ctx context.Context, in *RegisterClientRequest, opts ...grpc.CallOption) (*RegisterClientReply, error)
+        // Called by a client to make a request to a Raft node
+        ClientRequestCaller(ctx context.Context, in *ClientRequest, opts ...grpc.CallOption) (*ClientReply, error)
+}
+
+type raftRPCClient struct {
+        cc *grpc.ClientConn
+}
+
+func NewRaftRPCClient(cc *grpc.ClientConn) RaftRPCClient <span class="cov8" title="1">{
+        return &amp;raftRPCClient{cc}
+}</span>
+
+func (c *raftRPCClient) JoinCaller(ctx context.Context, in *RemoteNode, opts ...grpc.CallOption) (*Ok, error) <span class="cov8" title="1">{
+        out := new(Ok)
+        err := grpc.Invoke(ctx, "/raft.RaftRPC/JoinCaller", in, out, c.cc, opts...)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">return out, nil</span>
+}
+
+func (c *raftRPCClient) StartNodeCaller(ctx context.Context, in *StartNodeRequest, opts ...grpc.CallOption) (*Ok, error) <span class="cov8" title="1">{
+        out := new(Ok)
+        err := grpc.Invoke(ctx, "/raft.RaftRPC/StartNodeCaller", in, out, c.cc, opts...)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">return out, nil</span>
+}
+
+func (c *raftRPCClient) AppendEntriesCaller(ctx context.Context, in *AppendEntriesRequest, opts ...grpc.CallOption) (*AppendEntriesReply, error) <span class="cov8" title="1">{
+        out := new(AppendEntriesReply)
+        err := grpc.Invoke(ctx, "/raft.RaftRPC/AppendEntriesCaller", in, out, c.cc, opts...)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">return out, nil</span>
+}
+
+func (c *raftRPCClient) RequestVoteCaller(ctx context.Context, in *RequestVoteRequest, opts ...grpc.CallOption) (*RequestVoteReply, error) <span class="cov8" title="1">{
+        out := new(RequestVoteReply)
+        err := grpc.Invoke(ctx, "/raft.RaftRPC/RequestVoteCaller", in, out, c.cc, opts...)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">return out, nil</span>
+}
+
+func (c *raftRPCClient) RegisterClientCaller(ctx context.Context, in *RegisterClientRequest, opts ...grpc.CallOption) (*RegisterClientReply, error) <span class="cov8" title="1">{
+        out := new(RegisterClientReply)
+        err := grpc.Invoke(ctx, "/raft.RaftRPC/RegisterClientCaller", in, out, c.cc, opts...)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">return out, nil</span>
+}
+
+func (c *raftRPCClient) ClientRequestCaller(ctx context.Context, in *ClientRequest, opts ...grpc.CallOption) (*ClientReply, error) <span class="cov8" title="1">{
+        out := new(ClientReply)
+        err := grpc.Invoke(ctx, "/raft.RaftRPC/ClientRequestCaller", in, out, c.cc, opts...)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">return out, nil</span>
+}
+
+// Server API for RaftRPC service
+
+type RaftRPCServer interface {
+        // Used when a node in the cluster is first starting up so it can notify a
+        // leader what their listening address is.
+        JoinCaller(context.Context, *RemoteNode) (*Ok, error)
+        // Once the first node in the cluster has all of the addresses for all other
+        // nodes in the cluster it can then tell them to transition into Follower
+        // state and start the Raft protocol.
+        StartNodeCaller(context.Context, *StartNodeRequest) (*Ok, error)
+        // Invoked by leader to replicate log entries; also used as a heartbeat
+        // between leaders and followers.
+        AppendEntriesCaller(context.Context, *AppendEntriesRequest) (*AppendEntriesReply, error)
+        // Invoked by candidate nodes to request votes from other nodes.
+        RequestVoteCaller(context.Context, *RequestVoteRequest) (*RequestVoteReply, error)
+        // Called by a client when it first starts up to register itself with the
+        // Raft cluster and get a unique client id.
+        RegisterClientCaller(context.Context, *RegisterClientRequest) (*RegisterClientReply, error)
+        // Called by a client to make a request to a Raft node
+        ClientRequestCaller(context.Context, *ClientRequest) (*ClientReply, error)
+}
+
+func RegisterRaftRPCServer(s *grpc.Server, srv RaftRPCServer) <span class="cov8" title="1">{
+        s.RegisterService(&amp;_RaftRPC_serviceDesc, srv)
+}</span>
+
+func _RaftRPC_JoinCaller_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) <span class="cov8" title="1">{
+        in := new(RemoteNode)
+        if err := dec(in); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">if interceptor == nil </span><span class="cov8" title="1">{
+                return srv.(RaftRPCServer).JoinCaller(ctx, in)
+        }</span>
+        <span class="cov0" title="0">info := &amp;grpc.UnaryServerInfo{
+                Server:     srv,
+                FullMethod: "/raft.RaftRPC/JoinCaller",
+        }
+        handler := func(ctx context.Context, req interface{}) (interface{}, error) </span><span class="cov0" title="0">{
+                return srv.(RaftRPCServer).JoinCaller(ctx, req.(*RemoteNode))
+        }</span>
+        <span class="cov0" title="0">return interceptor(ctx, in, info, handler)</span>
+}
+
+func _RaftRPC_StartNodeCaller_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) <span class="cov8" title="1">{
+        in := new(StartNodeRequest)
+        if err := dec(in); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">if interceptor == nil </span><span class="cov8" title="1">{
+                return srv.(RaftRPCServer).StartNodeCaller(ctx, in)
+        }</span>
+        <span class="cov0" title="0">info := &amp;grpc.UnaryServerInfo{
+                Server:     srv,
+                FullMethod: "/raft.RaftRPC/StartNodeCaller",
+        }
+        handler := func(ctx context.Context, req interface{}) (interface{}, error) </span><span class="cov0" title="0">{
+                return srv.(RaftRPCServer).StartNodeCaller(ctx, req.(*StartNodeRequest))
+        }</span>
+        <span class="cov0" title="0">return interceptor(ctx, in, info, handler)</span>
+}
+
+func _RaftRPC_AppendEntriesCaller_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) <span class="cov8" title="1">{
+        in := new(AppendEntriesRequest)
+        if err := dec(in); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">if interceptor == nil </span><span class="cov8" title="1">{
+                return srv.(RaftRPCServer).AppendEntriesCaller(ctx, in)
+        }</span>
+        <span class="cov0" title="0">info := &amp;grpc.UnaryServerInfo{
+                Server:     srv,
+                FullMethod: "/raft.RaftRPC/AppendEntriesCaller",
+        }
+        handler := func(ctx context.Context, req interface{}) (interface{}, error) </span><span class="cov0" title="0">{
+                return srv.(RaftRPCServer).AppendEntriesCaller(ctx, req.(*AppendEntriesRequest))
+        }</span>
+        <span class="cov0" title="0">return interceptor(ctx, in, info, handler)</span>
+}
+
+func _RaftRPC_RequestVoteCaller_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) <span class="cov8" title="1">{
+        in := new(RequestVoteRequest)
+        if err := dec(in); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">if interceptor == nil </span><span class="cov8" title="1">{
+                return srv.(RaftRPCServer).RequestVoteCaller(ctx, in)
+        }</span>
+        <span class="cov0" title="0">info := &amp;grpc.UnaryServerInfo{
+                Server:     srv,
+                FullMethod: "/raft.RaftRPC/RequestVoteCaller",
+        }
+        handler := func(ctx context.Context, req interface{}) (interface{}, error) </span><span class="cov0" title="0">{
+                return srv.(RaftRPCServer).RequestVoteCaller(ctx, req.(*RequestVoteRequest))
+        }</span>
+        <span class="cov0" title="0">return interceptor(ctx, in, info, handler)</span>
+}
+
+func _RaftRPC_RegisterClientCaller_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) <span class="cov8" title="1">{
+        in := new(RegisterClientRequest)
+        if err := dec(in); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">if interceptor == nil </span><span class="cov8" title="1">{
+                return srv.(RaftRPCServer).RegisterClientCaller(ctx, in)
+        }</span>
+        <span class="cov0" title="0">info := &amp;grpc.UnaryServerInfo{
+                Server:     srv,
+                FullMethod: "/raft.RaftRPC/RegisterClientCaller",
+        }
+        handler := func(ctx context.Context, req interface{}) (interface{}, error) </span><span class="cov0" title="0">{
+                return srv.(RaftRPCServer).RegisterClientCaller(ctx, req.(*RegisterClientRequest))
+        }</span>
+        <span class="cov0" title="0">return interceptor(ctx, in, info, handler)</span>
+}
+
+func _RaftRPC_ClientRequestCaller_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) <span class="cov8" title="1">{
+        in := new(ClientRequest)
+        if err := dec(in); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">if interceptor == nil </span><span class="cov8" title="1">{
+                return srv.(RaftRPCServer).ClientRequestCaller(ctx, in)
+        }</span>
+        <span class="cov0" title="0">info := &amp;grpc.UnaryServerInfo{
+                Server:     srv,
+                FullMethod: "/raft.RaftRPC/ClientRequestCaller",
+        }
+        handler := func(ctx context.Context, req interface{}) (interface{}, error) </span><span class="cov0" title="0">{
+                return srv.(RaftRPCServer).ClientRequestCaller(ctx, req.(*ClientRequest))
+        }</span>
+        <span class="cov0" title="0">return interceptor(ctx, in, info, handler)</span>
+}
+
+var _RaftRPC_serviceDesc = grpc.ServiceDesc{
+        ServiceName: "raft.RaftRPC",
+        HandlerType: (*RaftRPCServer)(nil),
+        Methods: []grpc.MethodDesc{
+                {
+                        MethodName: "JoinCaller",
+                        Handler:    _RaftRPC_JoinCaller_Handler,
+                },
+                {
+                        MethodName: "StartNodeCaller",
+                        Handler:    _RaftRPC_StartNodeCaller_Handler,
+                },
+                {
+                        MethodName: "AppendEntriesCaller",
+                        Handler:    _RaftRPC_AppendEntriesCaller_Handler,
+                },
+                {
+                        MethodName: "RequestVoteCaller",
+                        Handler:    _RaftRPC_RequestVoteCaller_Handler,
+                },
+                {
+                        MethodName: "RegisterClientCaller",
+                        Handler:    _RaftRPC_RegisterClientCaller_Handler,
+                },
+                {
+                        MethodName: "ClientRequestCaller",
+                        Handler:    _RaftRPC_ClientRequestCaller_Handler,
+                },
+        },
+        Streams:  []grpc.StreamDesc{},
+        Metadata: "raft_rpc.proto",
+}
+
+func init() <span class="cov8" title="1">{ proto.RegisterFile("raft_rpc.proto", fileDescriptor0) }</span>
+
+var fileDescriptor0 = []byte{
+        // 867 bytes of a gzipped FileDescriptorProto
+        0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0xa4, 0x55, 0x41, 0x6f, 0xe3, 0x44,
+        0x14, 0xae, 0x1d, 0x37, 0x4d, 0x5f, 0x4a, 0xd6, 0x9d, 0x74, 0xbb, 0xde, 0x70, 0x89, 0x2c, 0x21,
+        0x45, 0xd5, 0xaa, 0x5a, 0x15, 0x71, 0x46, 0xc1, 0x35, 0xad, 0x21, 0xb1, 0xcb, 0xc4, 0xcb, 0xd5,
+        0x1a, 0xec, 0x69, 0xd7, 0x6a, 0xe2, 0x31, 0xf6, 0x74, 0x45, 0x7e, 0x01, 0x07, 0x0e, 0x1c, 0xb9,
+        0x71, 0xe5, 0xaf, 0xf1, 0x33, 0xd0, 0x8c, 0xc7, 0x59, 0x3b, 0xb8, 0x48, 0x68, 0x6f, 0xf3, 0xbe,
+        0xf7, 0xde, 0xf7, 0xbe, 0xf7, 0xc5, 0x33, 0x81, 0x51, 0x41, 0xee, 0x79, 0x54, 0xe4, 0xf1, 0x65,
+        0x5e, 0x30, 0xce, 0x90, 0x21, 0x62, 0xfb, 0x0d, 0xe8, 0xc1, 0x23, 0x1a, 0x81, 0xce, 0x1e, 0x2d,
+        0x6d, 0xaa, 0xcd, 0x06, 0x58, 0x67, 0x8f, 0xe8, 0x1c, 0xfa, 0x05, 0x25, 0x25, 0xcb, 0x2c, 0x7d,
+        0xaa, 0xcd, 0x8e, 0xb1, 0x8a, 0xec, 0xb7, 0x00, 0x98, 0x6e, 0x18, 0xa7, 0x3e, 0x4b, 0x28, 0x42,
+        0x60, 0x90, 0x24, 0x29, 0x64, 0xdf, 0x31, 0x96, 0x67, 0xc1, 0x94, 0x26, 0xaa, 0x4b, 0x4f, 0x13,
+        0x3b, 0x03, 0x73, 0xc5, 0x49, 0xc1, 0x45, 0x03, 0xa6, 0x3f, 0x3f, 0xd1, 0x92, 0xa3, 0x37, 0x30,
+        0xb8, 0x2f, 0xd8, 0x46, 0x40, 0xb2, 0x77, 0x78, 0x65, 0x5e, 0x0a, 0x31, 0x97, 0x1f, 0xb9, 0xf1,
+        0xae, 0x42, 0x54, 0x67, 0x2c, 0xa1, 0x8b, 0xb4, 0xe4, 0x96, 0x3e, 0xed, 0x75, 0x57, 0xd7, 0x15,
+        0xf6, 0x5f, 0x1a, 0x0c, 0x16, 0xec, 0xc1, 0xcd, 0x78, 0xb1, 0x45, 0x67, 0x70, 0x98, 0x66, 0x09,
+        0xfd, 0x45, 0x4e, 0x31, 0x70, 0x15, 0x88, 0xe5, 0x38, 0x2d, 0x36, 0x5e, 0x25, 0xd3, 0xc0, 0x2a,
+        0x42, 0x5f, 0x80, 0xc1, 0xb7, 0x39, 0xb5, 0x7a, 0x53, 0x6d, 0x36, 0xba, 0x3a, 0xad, 0x86, 0x38,
+        0x6c, 0xb3, 0x21, 0x59, 0x12, 0x6e, 0x73, 0x8a, 0x65, 0x1a, 0x59, 0x70, 0x14, 0x57, 0xa0, 0x65,
+        0xc8, 0xfe, 0x3a, 0x14, 0x7e, 0x24, 0x84, 0x13, 0xeb, 0x70, 0xaa, 0xcd, 0x4e, 0xb0, 0x3c, 0xcb,
+        0x6a, 0x12, 0xbf, 0xa7, 0x5e, 0x62, 0xf5, 0xa5, 0x29, 0x75, 0x68, 0xff, 0xad, 0xc1, 0xd9, 0x3c,
+        0xcf, 0x69, 0x96, 0x08, 0xb1, 0x29, 0x2d, 0x6b, 0x7b, 0x10, 0x18, 0x42, 0x91, 0x12, 0x2d, 0xcf,
+        0x68, 0x06, 0xfd, 0x35, 0x25, 0x09, 0x2d, 0xa4, 0xe6, 0x2e, 0x0b, 0x54, 0x1e, 0xd9, 0x70, 0x92,
+        0x17, 0xf4, 0xc3, 0x82, 0x3d, 0x78, 0x72, 0xf5, 0x9e, 0x64, 0x69, 0x61, 0x68, 0x0a, 0x43, 0x15,
+        0x87, 0x62, 0x50, 0xb5, 0x46, 0x13, 0x42, 0x33, 0x38, 0xa2, 0x95, 0x2a, 0xeb, 0x50, 0x7a, 0x3e,
+        0xaa, 0x06, 0xd6, 0xd6, 0xe2, 0x3a, 0x2d, 0xe6, 0x55, 0x93, 0x85, 0x53, 0x29, 0x97, 0x5b, 0x1a,
+        0xb8, 0x85, 0xd9, 0xdf, 0x00, 0xda, 0xdb, 0x34, 0x5f, 0x6f, 0x3b, 0xf7, 0xb4, 0xe0, 0xa8, 0x7c,
+        0x8a, 0x63, 0x5a, 0x96, 0x72, 0xd1, 0x01, 0xae, 0x43, 0xfb, 0x4f, 0x0d, 0x90, 0x72, 0xe8, 0x47,
+        0xc6, 0xe9, 0x7f, 0x99, 0x75, 0x09, 0xc7, 0x31, 0xc9, 0x92, 0x34, 0x21, 0x9c, 0x3e, 0xeb, 0xd7,
+        0xc7, 0x12, 0xb9, 0x02, 0x29, 0xf9, 0xbe, 0x65, 0x4d, 0x4c, 0x58, 0xa6, 0xe2, 0xa6, 0x65, 0x0d,
+        0xc8, 0xbe, 0x05, 0xb3, 0xa5, 0xef, 0xb9, 0x15, 0xa7, 0x30, 0xfc, 0xc0, 0x38, 0xbd, 0x29, 0x48,
+        0xc6, 0x69, 0xa2, 0xd6, 0x6c, 0x42, 0xf6, 0x2b, 0x78, 0x89, 0xe9, 0x43, 0x5a, 0x72, 0x5a, 0x38,
+        0xeb, 0x94, 0x66, 0x5c, 0xf1, 0xda, 0xbf, 0x6b, 0x30, 0xde, 0xcf, 0x88, 0x31, 0x17, 0xd0, 0x2f,
+        0x39, 0xe1, 0x4f, 0xa5, 0x1c, 0x34, 0xba, 0x42, 0xea, 0xdb, 0x95, 0x25, 0x2b, 0x99, 0xc1, 0xaa,
+        0x02, 0x4d, 0x60, 0x10, 0x4b, 0x7c, 0xf7, 0xfd, 0xef, 0x62, 0xf4, 0x16, 0xa0, 0xfa, 0xdd, 0x6e,
+        0xd3, 0x8c, 0x4b, 0x1b, 0xba, 0x9c, 0x6b, 0xd4, 0xd8, 0xbf, 0x69, 0xf0, 0x59, 0x4b, 0x63, 0x8b,
+        0x5f, 0xdb, 0xe3, 0x9f, 0xc2, 0xb0, 0x14, 0x65, 0x59, 0x4c, 0xfd, 0xa7, 0x8d, 0x1a, 0xdf, 0x84,
+        0xd0, 0x0c, 0x5e, 0x08, 0x9d, 0x74, 0x49, 0xe2, 0xf7, 0x69, 0x46, 0x9d, 0x4d, 0x7d, 0xc9, 0xf6,
+        0xe1, 0xae, 0xcb, 0x66, 0xff, 0xaa, 0xc1, 0xf0, 0x13, 0x7c, 0x29, 0x68, 0x99, 0xb3, 0xac, 0xa4,
+        0xea, 0xf9, 0xda, 0xc5, 0xff, 0xdf, 0x97, 0x8b, 0x77, 0x30, 0x6c, 0xbc, 0x1c, 0xe8, 0x15, 0x8c,
+        0x9d, 0x85, 0xe7, 0xfa, 0x61, 0x84, 0xdd, 0x1b, 0x6f, 0x15, 0xe2, 0x79, 0xe8, 0x05, 0xbe, 0x79,
+        0x80, 0x06, 0x60, 0x78, 0xbe, 0x17, 0x9a, 0x9a, 0x38, 0xf9, 0x41, 0x70, 0x67, 0xea, 0xe8, 0x35,
+        0xbc, 0x5c, 0x85, 0xf3, 0xd0, 0x8d, 0x96, 0x73, 0xe7, 0xd6, 0xf3, 0xdd, 0xc8, 0x09, 0x96, 0xcb,
+        0xb9, 0x7f, 0x6d, 0xf6, 0x2e, 0x52, 0x38, 0x69, 0x8a, 0x47, 0x7d, 0xd0, 0x83, 0xef, 0xcd, 0x03,
+        0x34, 0x02, 0xf0, 0x83, 0x30, 0x5a, 0xb8, 0xf3, 0x6b, 0x17, 0x9b, 0x1a, 0xb2, 0xe0, 0xcc, 0x5d,
+        0xb8, 0x8e, 0x18, 0x12, 0x79, 0x7e, 0x74, 0x87, 0x83, 0x1b, 0xec, 0xae, 0x56, 0xa6, 0x5e, 0x29,
+        0x79, 0xb7, 0x0a, 0x5d, 0x1c, 0x89, 0x8e, 0x55, 0x38, 0xc7, 0xa1, 0x7b, 0x6d, 0xf6, 0x04, 0x05,
+        0x76, 0x7f, 0x88, 0xbe, 0x9d, 0x7b, 0x0b, 0xf7, 0xda, 0x34, 0xae, 0xfe, 0xe8, 0xc1, 0x11, 0x26,
+        0xf7, 0x1c, 0xdf, 0x39, 0xe8, 0x02, 0xe0, 0x3b, 0x96, 0x66, 0x0e, 0x59, 0xaf, 0x69, 0x81, 0xfe,
+        0xb5, 0xf9, 0x64, 0x50, 0x21, 0xc1, 0xa3, 0x7d, 0x80, 0xbe, 0x82, 0x17, 0xbb, 0x07, 0x5f, 0x35,
+        0x9c, 0x57, 0xe9, 0xfd, 0xff, 0x81, 0x56, 0xdb, 0x12, 0xc6, 0xad, 0x27, 0x42, 0xb5, 0x4e, 0xaa,
+        0x92, 0xae, 0x77, 0x72, 0x62, 0x75, 0xe6, 0xf2, 0xf5, 0xd6, 0x3e, 0x40, 0x37, 0x70, 0xda, 0xb8,
+        0x8c, 0x8a, 0xcc, 0xaa, 0x85, 0xef, 0xbf, 0x22, 0x93, 0xf3, 0x8e, 0x4c, 0x45, 0x74, 0x07, 0x67,
+        0xed, 0x1b, 0xa7, 0xb8, 0x3e, 0xaf, 0x3b, 0x3a, 0xee, 0xe9, 0xe4, 0x75, 0x77, 0xb2, 0x62, 0xfc,
+        0x1a, 0xc6, 0xad, 0x6a, 0x45, 0x38, 0x6e, 0x7e, 0x9b, 0x35, 0xd1, 0x69, 0x1b, 0x94, 0x04, 0x3f,
+        0xf5, 0xe5, 0xff, 0xf7, 0x97, 0xff, 0x04, 0x00, 0x00, 0xff, 0xff, 0x43, 0x38, 0xc5, 0x93, 0xd1,
+        0x07, 0x00, 0x00,
+}
+</pre>
+		
+		<pre class="file" id="file12" style="display: none">// Brown University, CS138, Spring 2018
+//
+// Purpose: Provides wrappers around the client interface of GRPC to invoke
+// functions on remote Raft nodes.
+
+package raft
+
+import (
+        "fmt"
+        "sync"
+        "time"
+
+        "golang.org/x/net/context"
+        "google.golang.org/grpc"
+)
+
+var dialOptions []grpc.DialOption
+
+func init() <span class="cov8" title="1">{
+        dialOptions = []grpc.DialOption{grpc.WithInsecure(), grpc.FailOnNonTempDialError(true), grpc.WithTimeout(2 * time.Second)}
+}</span>
+
+// RPC Invocation functions
+
+var connMap = make(map[string]*grpc.ClientConn)
+var connMapLock = &amp;sync.RWMutex{}
+
+func closeAllConnections() <span class="cov0" title="0">{
+        connMapLock.Lock()
+        defer connMapLock.Unlock()
+        for k, conn := range connMap </span><span class="cov0" title="0">{
+                conn.Close()
+                delete(connMap, k)
+        }</span>
+}
+
+// makeClientConn creates a new client connection to the given remote node
+func makeClientConn(remote *RemoteNode) (*grpc.ClientConn, error) <span class="cov8" title="1">{
+        return grpc.Dial(remote.Addr, dialOptions...)
+}</span>
+
+// ClientConn creates or returns a cached RPC client for the given remote node
+func (remote *RemoteNode) ClientConn() (RaftRPCClient, error) <span class="cov8" title="1">{
+        connMapLock.RLock()
+        if cc, ok := connMap[remote.Addr]; ok </span><span class="cov8" title="1">{
+                connMapLock.RUnlock()
+                return NewRaftRPCClient(cc), nil
+        }</span>
+        <span class="cov8" title="1">connMapLock.RUnlock()
+        cc, err := makeClientConn(remote)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">connMapLock.Lock()
+        connMap[remote.Addr] = cc
+        connMapLock.Unlock()
+        return NewRaftRPCClient(cc), err</span>
+}
+
+// RemoveClientConn removes the client connection to the given node, if present
+func (remote *RemoteNode) RemoveClientConn() <span class="cov0" title="0">{
+        connMapLock.Lock()
+        defer connMapLock.Unlock()
+        if cc, ok := connMap[remote.Addr]; ok </span><span class="cov0" title="0">{
+                cc.Close()
+                delete(connMap, remote.Addr)
+        }</span>
+}
+
+// connCheck checks the given error and removes the client connection if it's not nil
+func (remote *RemoteNode) connCheck(err error) error <span class="cov8" title="1">{
+        if err != nil </span><span class="cov0" title="0">{
+                remote.RemoveClientConn()
+        }</span>
+        <span class="cov8" title="1">return err</span>
+}
+
+// JoinRPC tells the given remote node that we (a new Raft node) want to join the cluster
+func (remote *RemoteNode) JoinRPC(local *RaftNode) error <span class="cov8" title="1">{
+        // Get a client connection for the remote node
+        if local.NetworkPolicy.IsDenied(*local.GetRemoteSelf(), *remote) </span><span class="cov0" title="0">{
+                return ErrorNetworkPolicyDenied
+        }</span>
+
+        <span class="cov8" title="1">cc, err := remote.ClientConn()
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        // Call the actual RPC call over the network to the remote node
+        <span class="cov8" title="1">ok, err := cc.JoinCaller(context.Background(), local.GetRemoteSelf())
+        if err == nil &amp;&amp; !ok.GetOk() </span><span class="cov0" title="0">{
+                return fmt.Errorf("unable to join Raft cluster")
+        }</span>
+
+        // Check for an RPC error, and close the client connection if necessary.
+        // Be sure to use this in the rest of the functions in this file!
+        <span class="cov8" title="1">return remote.connCheck(err)</span>
+}
+
+// StartNodeRPC tells the remote node to start execution with the given list
+// of RemoteNodes as the list of all the nodes in the cluster.
+func (remote *RemoteNode) StartNodeRPC(local *RaftNode, nodeList []RemoteNode) error <span class="cov8" title="1">{
+        // TODO: Students should implement this method
+        
+        // Make sure to check the provided raftNode's network policy to make sure
+        // we are allowed to make this request.
+        if local.NetworkPolicy.IsDenied(*local.GetRemoteSelf(), *remote) </span><span class="cov0" title="0">{
+                return ErrorNetworkPolicyDenied
+        }</span>
+        <span class="cov8" title="1">cc, err := remote.ClientConn()
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">var nodeListPtrs []*RemoteNode
+    for i := 0; i &lt; len(nodeList); i++ </span><span class="cov8" title="1">{
+        nodeListPtrs = append(nodeListPtrs, &amp;(nodeList[i]))
+    }</span>
+
+        <span class="cov8" title="1">req := StartNodeRequest {
+                FromNode: remote,
+                NodeList: nodeListPtrs,
+        }
+
+        ok, err := cc.StartNodeCaller(context.Background(), &amp;req)
+        if err == nil &amp;&amp; !ok.GetOk() </span><span class="cov0" title="0">{
+                return fmt.Errorf("unable to start node")
+        }</span>
+        <span class="cov8" title="1">return remote.connCheck(err)</span>
+}
+
+// AppendEntriesRPC is called by a leader in the cluster attempting to append
+// entries to one of its followers. Be sure to pass in a pointer to the RaftNode
+// making the request.
+func (remote *RemoteNode) AppendEntriesRPC(local *RaftNode, request *AppendEntriesRequest) (*AppendEntriesReply, error) <span class="cov8" title="1">{
+        // TODO: Students should implement this method
+        // Make sure to check the provided raftNode's network policy to make sure
+        // we are allowed to make this request.
+        if local.NetworkPolicy.IsDenied(*local.GetRemoteSelf(), *remote) </span><span class="cov0" title="0">{
+                return nil, ErrorNetworkPolicyDenied
+        }</span>
+        <span class="cov8" title="1">cc, err := remote.ClientConn()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">reply, err := cc.AppendEntriesCaller(context.Background(), request)
+
+        return reply, remote.connCheck(err)</span>
+}
+
+// RequestVoteRPC asks the given remote node for a vote, using the provided
+// RequestVoteRequest struct as the request. Note that calling nodes should
+// pass in a pointer to their own RaftNode struct.
+func (remote *RemoteNode) RequestVoteRPC(local *RaftNode, request *RequestVoteRequest) (*RequestVoteReply, error) <span class="cov8" title="1">{
+        // TODO: Students should implement this method
+        // Make sure to check the provided raftNode's network policy to make sure
+        // we are allowed to make this request.
+        if local.NetworkPolicy.IsDenied(*local.GetRemoteSelf(), *remote) </span><span class="cov0" title="0">{
+                return nil, ErrorNetworkPolicyDenied
+        }</span>
+        <span class="cov8" title="1">cc, err := remote.ClientConn()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">reply, err := cc.RequestVoteCaller(context.Background(), request)
+
+        return reply, remote.connCheck(err)</span>
+}
+
+// RegisterClientRPC is called by a new client trying to register itself with
+// the given Raft node in the cluster.
+func (remote *RemoteNode) RegisterClientRPC() (*RegisterClientReply, error) <span class="cov8" title="1">{
+        // TODO: Students should implement this method
+        cc, err := remote.ClientConn()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        // no fields to represent that the client does not need to send data to register
+        <span class="cov8" title="1">req := RegisterClientRequest{} 
+        reply, err := cc.RegisterClientCaller(context.Background(), &amp;req)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, remote.connCheck(err)
+        }</span>
+        <span class="cov8" title="1">a := remote.connCheck(err)
+        return reply, a</span>
+}
+
+// ClientRequestRPC is executed by a client trying to make a request to the
+// given Raft node in the cluster.
+func (remote *RemoteNode) ClientRequestRPC(request *ClientRequest) (*ClientReply, error) <span class="cov8" title="1">{
+        // TODO: Students should implement this method
+        cc, err := remote.ClientConn()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">reply, err := cc.ClientRequestCaller(context.Background(), request)
+        return reply, remote.connCheck(err)</span>
+}
+</pre>
+		
+		<pre class="file" id="file13" style="display: none">// Brown University, CS138, Spring 2018
+//
+// Purpose: Implements functions that are invoked by clients and other nodes
+// over RPC.
+
+package raft
+
+import "golang.org/x/net/context"
+
+// JoinCaller is called through GRPC to execute a join request.
+func (local *RaftNode) JoinCaller(ctx context.Context, r *RemoteNode) (*Ok, error) <span class="cov8" title="1">{
+        // Check if the network policy prevents incoming requests from the requesting node
+        if local.NetworkPolicy.IsDenied(*r, *local.GetRemoteSelf()) </span><span class="cov0" title="0">{
+                return nil, ErrorNetworkPolicyDenied
+        }</span>
+
+        // Defer to the local Join implementation, and marshall the results to
+        // respond to the GRPC request.
+        <span class="cov8" title="1">err := local.Join(r)
+        return &amp;Ok{Ok: err == nil}, err</span>
+}
+
+// StartNodeCaller is called through GRPC to execute a start node request.
+func (local *RaftNode) StartNodeCaller(ctx context.Context, req *StartNodeRequest) (*Ok, error) <span class="cov8" title="1">{
+        // TODO: Students should implement this method
+        // Make sure to check the provided Raft node's network policy to make sure
+        // we are allowed to respond to this request. Respond with
+        // ErrorNetworkPolicyDenied if not.
+        if local.NetworkPolicy.IsDenied(*(req.FromNode), *local.GetRemoteSelf()) </span><span class="cov0" title="0">{
+                return nil, ErrorNetworkPolicyDenied
+        }</span>
+        <span class="cov8" title="1">err := local.StartNode(req)
+
+        return &amp;Ok{Ok: err == nil}, err</span>
+}
+
+// AppendEntriesCaller is called through GRPC to respond to an append entries request.
+func (local *RaftNode) AppendEntriesCaller(ctx context.Context, req *AppendEntriesRequest) (*AppendEntriesReply, error) <span class="cov8" title="1">{
+        // TODO: Students should implement this method
+        // Make sure to check the provided Raft node's network policy to make sure
+        // we are allowed to respond to this request. Respond with
+        // ErrorNetworkPolicyDenied if not.
+        if local.NetworkPolicy.IsDenied(*(req.Leader), *local.GetRemoteSelf()) </span><span class="cov0" title="0">{
+                return nil, ErrorNetworkPolicyDenied
+        }</span>
+        <span class="cov8" title="1">reply, err := local.AppendEntries(req)
+        return &amp;reply, err</span>
+}
+
+// RequestVoteCaller is called through GRPC to respond to a vote request.
+func (local *RaftNode) RequestVoteCaller(ctx context.Context, req *RequestVoteRequest) (*RequestVoteReply, error) <span class="cov8" title="1">{
+        // TODO: Students should implement this method
+        // Make sure to check the provided Raft node's network policy to make sure
+        // we are allowed to respond to this request. Respond with
+        // ErrorNetworkPolicyDenied if not.
+        if local.NetworkPolicy.IsDenied(*(req.Candidate), *local.GetRemoteSelf()) </span><span class="cov0" title="0">{
+                return nil, ErrorNetworkPolicyDenied
+        }</span>
+        <span class="cov8" title="1">reply, err := local.RequestVote(req)
+        return &amp;reply, err</span>
+}
+
+// RegisterClientCaller is called through GRPC to respond to a client
+// registration request.
+func (local *RaftNode) RegisterClientCaller(ctx context.Context, req *RegisterClientRequest) (*RegisterClientReply, error) <span class="cov8" title="1">{
+        // TODO: Students should implement this method
+        reply, err := local.RegisterClient(req)
+        return &amp;reply, err
+}</span>
+
+// ClientRequestCaller is called through GRPC to respond to a client request.
+func (local *RaftNode) ClientRequestCaller(ctx context.Context, req *ClientRequest) (*ClientReply, error) <span class="cov8" title="1">{
+        // TODO: Students should implement this method
+        reply, err := local.ClientRequest(req)
+        return &amp;reply, err
+}</span>
+</pre>
+		
+		<pre class="file" id="file14" style="display: none">package raft
+
+import (
+        "crypto/sha1"
+        "fmt"
+        "math/big"
+        "net"
+        "os"
+        "time"
+        "math/rand"
+)
+
+
+// OpenPort creates a listener on the specified port.
+func OpenPort(port int) (net.Listener, error) <span class="cov0" title="0">{
+        hostname, err := os.Hostname()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">conn, err := net.Listen("tcp4", fmt.Sprintf("%v:%v", hostname, port))
+        return conn, err</span>
+}
+
+// AddrToId converts a network address to a Raft node ID of specified length.
+func AddrToId(addr string, length int) string <span class="cov8" title="1">{
+        h := sha1.New()
+        h.Write([]byte(addr))
+        v := h.Sum(nil)
+        keyInt := big.Int{}
+        keyInt.SetBytes(v[:length])
+        return keyInt.String()
+}</span>
+
+// randomTimeout uses time.After to create a timeout between minTimeout and 2x that.
+func randomTimeout(minTimeout time.Duration) &lt;-chan time.Time <span class="cov8" title="1">{
+        // TODO: Students should implement this method
+        maxTimeout := 2 * int(minTimeout)
+        rand.Seed(time.Now().UTC().UnixNano())
+        dur := time.Duration(rand.Intn(maxTimeout - int(minTimeout)) + int(minTimeout))
+        return time.After(dur)
+}</span>
+
+// createCacheId creates a unique ID to store a client request and corresponding
+// reply in cache.
+func createCacheId(clientId, sequenceNum uint64) string <span class="cov8" title="1">{
+        return fmt.Sprintf("%v-%v", clientId, sequenceNum)
+}</span>
+
+// UInt64Slice is a type definition for a slice of uint64s. We then define
+// functions Len, Swap, and Less on it in order to implement sort.Interface
+// and thus enable sorting a uint64 slice.
+//
+// See https://golang.org/pkg/sort/ for more details. Note that this is no
+// longer required starting Go 1.8, but we're using Go 1.7 as the current
+// official version for this class.
+/*
+type UInt64Slice []uint64
+
+func (p UInt64Slice) Len() int {
+        return len(p)
+}
+
+func (p UInt64Slice) Swap(i, j int) {
+        p[i], p[j] = p[j], p[i]
+}
+
+func (p UInt64Slice) Less(i, j int) bool {
+        return p[i] &lt; p[j]
+}
+*/</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>
